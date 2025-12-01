@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1038796849112",
+    "project_id": "rimun-app",
+    "storage_bucket": "rimun-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1038796849112:android:8d1439462e51db72533cad",
+        "android_client_info": {
+          "package_name": "com.example.rimun_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBi2rp_x5yNQtYdtBNOvhXBDKKZcabc11g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
