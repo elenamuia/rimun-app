@@ -9,9 +9,16 @@ class MapScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: InteractiveViewer(
-        maxScale: 4,
+        minScale: 0.5, // rimpicciolisce fino al 50%
+        maxScale: 1.5, // ingrandisce fino al 150%
+        constrained: true, // 🔒 evita che l'immagine "scappi"
+        panEnabled: true,
+        scaleEnabled: true,
         child: Center(
-          child: Image.asset('assets/maps/scuola.png'),
+          child: Image.asset(
+            'assets/maps/scuola.jpeg',
+            fit: BoxFit.contain,
+          ),
         ),
       ),
     );

@@ -33,7 +33,7 @@ class MUNApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MUN App',
+      title: 'RIMUN App',
       theme: ThemeData.dark(useMaterial3: true).copyWith(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.indigo,
@@ -110,7 +110,27 @@ class _LoginWrapperState extends State<LoginWrapper> {
         },
       );
     } else {
-      return HomeScreen(student: _student!);
+      return HomeScreen(
+        student: _student!,
+        onLogout: () async {
+          final bool isFirebaseSupported =
+              kIsWeb ||
+              defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS ||
+              defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.windows;
+
+          if (isFirebaseSupported) {
+            // logout Firebase (se disponibile)
+            final authService = AuthService();
+            await authService.signOut();
+          }
+
+          if (mounted) {
+            setState(() => _student = null); // torna alla LoginScreen
+          }
+        },
+      );
     }
   }
 }

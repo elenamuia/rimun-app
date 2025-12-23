@@ -1,15 +1,20 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../services.dart';
 import 'today_screen.dart';
 import 'map_screen.dart';
 import 'notice_board_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Student student;
+  final Future<void> Function() onLogout;
 
-  const HomeScreen({super.key, required this.student});
+  const HomeScreen({
+    super.key,
+    required this.student,
+    required this.onLogout,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -27,17 +32,26 @@ class _HomeScreenState extends State<HomeScreen> {
         student: widget.student,
         scheduleService: _scheduleService,
       ),
-      MapScreen(),
+      const MapScreen(),
       NoticeBoardScreen(
         noticeStream: _noticeService.listenNotices(),
+      ),
+      ProfileScreen(
+        student: widget.student,
+        onLogout: widget.onLogout,
       ),
     ];
 
     return Scaffold(
+      backgroundColor: const Color(0xFF0F245B),
       appBar: AppBar(
-        title: Text('Buongiorno, ${widget.student.name}'),
+        centerTitle: true,
+        title: Text('Welcome, ${widget.student.name}'),
       ),
-      body: pages[_index],
+      body: IndexedStack(
+        index: _index,
+        children: pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
@@ -45,17 +59,22 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.today_outlined),
             selectedIcon: Icon(Icons.today),
-            label: 'Oggi',
+            label: 'Today',
           ),
           NavigationDestination(
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
-            label: 'Mappa',
+            label: 'Map',
           ),
           NavigationDestination(
             icon: Icon(Icons.campaign_outlined),
             selectedIcon: Icon(Icons.campaign),
-            label: 'Bacheca',
+            label: 'News',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),

@@ -17,7 +17,7 @@ class NoticeBoardScreen extends StatelessWidget {
         }
         final notices = snapshot.data!;
         if (notices.isEmpty) {
-          return const Center(child: Text('Nessun annuncio al momento.'));
+          return const Center(child: Text('No news available!'));
         }
 
         return ListView.builder(
