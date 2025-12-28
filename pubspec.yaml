@@ -66,6 +66,7 @@ flutter:
   assets:
   - assets/maps/scuola.jpeg
   - assets/logo_frase.png
+  - assets/rimun_calendario_prova.csv
 
   # To add assets to your application, add an assets section, like this:
   # assets:
