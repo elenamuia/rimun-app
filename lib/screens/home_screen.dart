@@ -5,6 +5,7 @@ import 'today_screen.dart';
 import 'map_screen.dart';
 import 'notice_board_screen.dart';
 import 'profile_screen.dart';
+import 'schedule_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Student student;
@@ -32,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
         student: widget.student,
         scheduleService: _scheduleService,
       ),
+      const ScheduleScreen(),
       const MapScreen(),
       NoticeBoardScreen(
         noticeStream: _noticeService.listenNotices(),
@@ -57,9 +59,21 @@ class _HomeScreenState extends State<HomeScreen> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.today_outlined),
-            selectedIcon: Icon(Icons.today),
+            icon: ImageIcon(
+              AssetImage('assets/logo_frase.png'),
+              size: 26,
+            ),
+            selectedIcon: ImageIcon(
+              AssetImage('assets/logo_frase.png'),
+              size: 28,
+            ),
             label: 'Today',
+          ),
+
+          NavigationDestination(
+            icon: Icon(Icons.event_outlined),
+            selectedIcon: Icon(Icons.event),
+            label: 'Schedule',
           ),
           NavigationDestination(
             icon: Icon(Icons.map_outlined),
