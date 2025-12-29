@@ -44,16 +44,31 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ];
 
+    /// 🔹 Titoli dinamici per AppBar
+    final titles = [
+      'Welcome to RIMUN XIX', // Today
+      'Schedule',
+      'Map',
+      'News',
+      'Profile',
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F245B),
+
       appBar: AppBar(
         centerTitle: true,
-        title: Text('Welcome, ${widget.student.name}'),
+        title: Text(
+          titles[_index],
+          textAlign: TextAlign.center,
+        ),
       ),
+
       body: IndexedStack(
         index: _index,
         children: pages,
       ),
+
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
@@ -69,7 +84,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             label: 'Today',
           ),
-
           NavigationDestination(
             icon: Icon(Icons.event_outlined),
             selectedIcon: Icon(Icons.event),

@@ -14,11 +14,23 @@ class TodayScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pagina "vuota" per ora
-    return const Center(
-      child: Text(
-        'Today page coming soon',
-        style: TextStyle(fontSize: 18),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Welcome, ${student.name}',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Have a great conference!',
+            style: TextStyle(fontSize: 16),
+          ),
+        ],
       ),
     );
   }
