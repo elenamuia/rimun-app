@@ -68,7 +68,7 @@ class ScheduleService {
   }
 }
 
-class NoticeService {
+class NoticeService{
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Stream<List<Notice>> listenNotices() {
@@ -83,7 +83,29 @@ class NoticeService {
                 title: data['title'] ?? '',
                 body: data['body'] ?? '',
                 createdAt: (data['createdAt'] as Timestamp).toDate(),
+                recipients: (data['recipients'] as List<dynamic>?)
+                        ?.map((e) => e.toString())
+                        .toList() ??
+                    [],
               );
             }).toList());
+  }
+
+  Future<void> createNotice({
+    required Student author,
+    required String title,
+    required String body,
+    required List<String> recipients,
+  }) async {
+    await _db.collection('notices').add({
+      'title': title,
+      'body': body,
+      'recipients': recipients,
+      'createdAt': Timestamp.now(),
+      // info autore
+      'authorId': author.id,
+      'authorName': '${author.name} ${author.surname}'.trim(),
+      'authorEmail': author.email,
+    });
   }
 }

@@ -29,24 +29,46 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final email = _emailCtrl.text.trim();
+      final password = _passwordCtrl.text.trim();
+
       // ===============================
       // 🔐 LOGIN DEMO (solo in DEBUG)
       // ===============================
-      if (kDebugMode &&
-          _emailCtrl.text.trim() == 'demo@rimun.it' &&
-          _passwordCtrl.text.trim() == '123') {
-        final student = Student(
-          id: 'demo-user',
-          name: 'Demo',
-          surname: 'RIMUN',
-          email: 'demo@rimun.it',
-          school: 'RIMUN Demo School',
-          country: 'Italy',
-          delegation: 'China',
-          committee: 'GA3',
-        );
-        widget.onLoggedIn(student);
-        return;
+      if (kDebugMode) {
+        // Utente demo (delegato)
+        if (email == 'demo@rimun.it' && password == '123') {
+          final student = Student(
+            id: 'demo-user',
+            name: 'Demo',
+            surname: 'RIMUN',
+            email: 'demo@rimun.it',
+            school: 'RIMUN Demo School',
+            country: 'Italy',
+            delegation: 'China',
+            committee: 'GA3',
+            isSecretariat: false, // 🔹 delegato normale
+          );
+          widget.onLoggedIn(student);
+          return;
+        }
+
+        // Utente segretariato
+        if (email == 'secretariat@rimun.it' && password == '123') {
+          final student = Student(
+            id: 'secretariat-user',
+            name: 'Secretariat',
+            surname: 'RIMUN',
+            email: 'secretariat@rimun.it',
+            school: 'RIMUN Secretariat',
+            country: 'Italy',
+            delegation: '',
+            committee: '',
+            isSecretariat: true, // 🔹 questo ha i permessi extra
+          );
+          widget.onLoggedIn(student);
+          return;
+        }
       }
 
       // ===============================
@@ -62,13 +84,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (isFirebaseSupported) {
         final authService = AuthService();
         final student = await authService.signInWithEmail(
-          _emailCtrl.text.trim(),
-          _passwordCtrl.text.trim(),
+          email,
+          password,
         );
         widget.onLoggedIn(student);
       } else {
         // Fallback locale (Linux ecc.)
-        final email = _emailCtrl.text.trim();
         final student = Student(
           id: 'local-demo',
           name: email.isNotEmpty ? email.split('@').first : 'Demo',
@@ -76,6 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
           email: email,
           school: 'Demo School',
           country: 'Demo',
+          delegation: 'China',
+          committee: 'GA3',
+          isSecretariat: false,
         );
         widget.onLoggedIn(student);
       }

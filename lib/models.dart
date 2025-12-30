@@ -5,6 +5,10 @@ class Student {
   final String email;
   final String school;
   final String country;
+
+  // 🔹 NUOVO: ruolo
+  final bool isSecretariat;
+
   final String delegation;
   final String committee;
 
@@ -17,6 +21,7 @@ class Student {
     required this.country,
     this.delegation = '',
     this.committee = '',
+    this.isSecretariat = false, // di default è semplice “delegato”
   });
 
   factory Student.fromMap(String id, Map<String, dynamic> data) {
@@ -27,13 +32,13 @@ class Student {
       email: data['email'] ?? '',
       school: data['school'] ?? '',
       country: data['country'] ?? '',
-
-      // 🔹 questi vengono da Firebase (se presenti)
       delegation: data['delegation'] ?? '',
       committee: data['committee'] ?? '',
+      isSecretariat: data['isSecretariat'] ?? false,
     );
   }
 }
+
 
 
 class EventItem {
@@ -67,12 +72,14 @@ class Notice {
   final String title;
   final String body;
   final DateTime createdAt;
+  final List<String> recipients;
 
   Notice({
     required this.id,
     required this.title,
     required this.body,
     required this.createdAt,
+    this.recipients = const [],
   });
 
   factory Notice.fromMap(String id, Map<String, dynamic> data) {

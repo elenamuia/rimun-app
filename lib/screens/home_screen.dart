@@ -26,6 +26,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final _scheduleService = ScheduleService();
   final _noticeService = NoticeService();
 
+  // opzioni destinatari per le news
+  final List<String> _recipientOptions = ['GA1', 'GA2', 'GA3'];
+
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -46,12 +49,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     /// 🔹 Titoli dinamici per AppBar
     final titles = [
-      "Today's plan", // Today
+      'Welcome to RIMUN XIX', // Today
       'Schedule',
       'Map',
       'News',
       'Profile',
     ];
+
+    final bool canCreateNews =
+        widget.student.isSecretariat && (_index == 0 || _index == 3);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F245B),
@@ -68,6 +74,16 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _index,
         children: pages,
       ),
+
+      // 🔹 FAB "+" solo per segretariato in Today e News
+      floatingActionButton: canCreateNews
+          ? FloatingActionButton(
+              onPressed: _openCreateNoticeDialog,
+              backgroundColor: Colors.lightBlueAccent,
+              child: const Icon(Icons.add),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
 
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -105,6 +121,131 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Profile',
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openCreateNoticeDialog() async {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final Set<String> selectedRecipients = {};
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Create news'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Titolo
+                TextField(
+                  controller: titleController,
+                  maxLength: 100,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Descrizione
+                TextField(
+                  controller: descriptionController,
+                  maxLines: 4,
+                  maxLength: 500,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Destinatari (multi-selezione)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Recipients',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: _recipientOptions.map((r) {
+                    final selected = selectedRecipients.contains(r);
+                    return FilterChip(
+                      label: Text(r),
+                      selected: selected,
+                      onSelected: (v) {
+                        if (v) {
+                          selectedRecipients.add(r);
+                        } else {
+                          selectedRecipients.remove(r);
+                        }
+                        (ctx as Element).markNeedsBuild();
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annulla'),
+            ),
+            FilledButton(
+              onPressed: () {
+                // puoi anche aggiungere una validazione
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Crea evento'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != true) return;
+
+    final title = titleController.text.trim();
+    final body = descriptionController.text.trim();
+    final recipients = selectedRecipients.toList();
+
+    if (title.isEmpty || body.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Title and description are required'),
+        ),
+      );
+      return;
+    }
+
+    // 🔹 Banner giallo di conferma
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.amber,
+        content: const Text('Sei sicuro di voler procedere?'),
+        action: SnackBarAction(
+          label: 'Conferma',
+          textColor: Colors.black,
+          onPressed: () async {
+            await _noticeService.createNotice(
+              author: widget.student,
+              title: title,
+              body: body,
+              recipients: recipients,
+            );
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Evento creato'),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
