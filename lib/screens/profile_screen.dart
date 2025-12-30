@@ -25,19 +25,24 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // 🔹 Avatar
                   const CircleAvatar(
                     radius: 45,
                     child: Icon(Icons.person, size: 50),
                   ),
+
                   const SizedBox(height: 16),
 
+                  // 🔹 Nome
                   Text(
                     '${student.name} ${student.surname}'.trim(),
                     style: Theme.of(context).textTheme.headlineSmall,
                     textAlign: TextAlign.center,
                   ),
+
                   const SizedBox(height: 8),
 
+                  // 🔹 Email
                   Text(
                     student.email,
                     textAlign: TextAlign.center,
@@ -45,13 +50,17 @@ class ProfileScreen extends StatelessWidget {
 
                   const Divider(height: 32),
 
+                  // 🔹 School
                   _InfoRow(
                     icon: Icons.school,
                     text: student.school.isNotEmpty
                         ? student.school
                         : 'School not specified',
                   ),
+
                   const SizedBox(height: 12),
+
+                  // 🔹 Country
                   _InfoRow(
                     icon: Icons.public,
                     text: student.country.isNotEmpty
@@ -59,23 +68,46 @@ class ProfileScreen extends StatelessWidget {
                         : 'Country not specified',
                   ),
 
+                  const SizedBox(height: 12),
+
+                  // 🔹 Delegation
+                  _InfoRow(
+                    icon: Icons.flag,
+                    text: student.delegation.isNotEmpty
+                        ? 'Delegation: ${student.delegation}'
+                        : 'Delegation not specified',
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // 🔹 Committee
+                  _InfoRow(
+                    icon: Icons.people,
+                    text: student.committee.isNotEmpty
+                        ? 'Committee: ${student.committee}'
+                        : 'Committee not specified',
+                  ),
+
                   const SizedBox(height: 28),
 
+                  // 🔹 Logout button
                   FilledButton.icon(
                     onPressed: () async {
-                      // (opzionale) conferma logout
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text('Logout'),
-                          content: const Text('Do you want to disonnect?'),
+                          content:
+                              const Text('Do you want to disconnect?'),
                           actions: [
                             TextButton(
-                              onPressed: () => Navigator.pop(context, false),
+                              onPressed: () =>
+                                  Navigator.pop(context, false),
                               child: const Text('Cancel'),
                             ),
                             FilledButton(
-                              onPressed: () => Navigator.pop(context, true),
+                              onPressed: () =>
+                                  Navigator.pop(context, true),
                               child: const Text('Logout'),
                             ),
                           ],

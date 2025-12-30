@@ -42,6 +42,8 @@ class _LoginScreenState extends State<LoginScreen> {
           email: 'demo@rimun.it',
           school: 'RIMUN Demo School',
           country: 'Italy',
+          delegation: 'China',
+          committee: 'GA3',
         );
         widget.onLoggedIn(student);
         return;

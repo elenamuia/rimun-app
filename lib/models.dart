@@ -1,4 +1,3 @@
-// lib/models.dart
 class Student {
   final String id;
   final String name;
@@ -6,6 +5,7 @@ class Student {
   final String email;
   final String school;
   final String country;
+  final String delegation;
   final String committee;
 
   Student({
@@ -15,21 +15,26 @@ class Student {
     required this.email,
     required this.school,
     required this.country,
-    this.committee = 'TBD',
+    this.delegation = '',
+    this.committee = '',
   });
 
   factory Student.fromMap(String id, Map<String, dynamic> data) {
     return Student(
       id: id,
-      name: data['name'] ?? 'Studente',
+      name: data['name'] ?? '',
       surname: data['surname'] ?? '',
       email: data['email'] ?? '',
       school: data['school'] ?? '',
       country: data['country'] ?? '',
-      committee: data['committee'] ?? 'TBD',
+
+      // 🔹 questi vengono da Firebase (se presenti)
+      delegation: data['delegation'] ?? '',
+      committee: data['committee'] ?? '',
     );
   }
 }
+
 
 class EventItem {
   final String id;

@@ -198,18 +198,6 @@ class _TodayScreenState extends State<TodayScreen> {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 16),
-
-              // 🔹 Welcome, Nome
-              Text(
-                'Welcome, ${widget.student.name}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
               const SizedBox(height: 24),
 
               // 🔹 Ongoing

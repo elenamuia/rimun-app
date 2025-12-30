@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     /// 🔹 Titoli dinamici per AppBar
     final titles = [
-      'Welcome to RIMUN XIX', // Today
+      "Today's plan", // Today
       'Schedule',
       'Map',
       'News',
