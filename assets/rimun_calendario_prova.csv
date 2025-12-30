@@ -1,5 +1,5 @@
-day,starting time,ending time,description,location
-27/03/2026,13:00,17:00,Opening Cerimony,Campidoglio 
-28/03/2026,9:00,9:30,Registration,Liceo Farnesina
-28/03/2026,10:00,13:00,Commission,Liceo Farnesina
-29/03/2026,16:00,19:00,Closing Cerimony,TBA
+day,starting time,ending time,description,location,link
+27/03/2026,13:00,17:00,Opening Cerimony,Campidoglio,https://maps.app.goo.gl/HdyTLSciAXseyFmQ9
+28/03/2026,9:00,9:30,Registration,Liceo Farnesina,https://maps.app.goo.gl/VRJLALVYPry2UcSAA
+28/03/2026,10:00,13:00,Commission,Liceo Farnesina,https://maps.app.goo.gl/VRJLALVYPry2UcSAA
+29/03/2026,16:00,19:00,Closing Cerimony,TBA,

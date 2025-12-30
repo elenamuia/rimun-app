@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:url_launcher/url_launcher.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
@@ -19,7 +20,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Future<List<DaySchedule>> _loadEventsFromCsv() async {
     try {
-      final csvString = await rootBundle.loadString('assets/rimun_calendario_prova.csv');
+      final csvString =
+          await rootBundle.loadString('assets/rimun_calendario_prova.csv');
 
       final lines = csvString
           .split(RegExp(r'\r?\n'))
@@ -41,7 +43,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       for (var i = startIndex; i < lines.length; i++) {
         final line = lines[i];
         final parts = line.split(',');
-        if (parts.length < 5) {
+        if (parts.length < 6) {
           debugPrint('CSV: riga malformata "$line"');
           continue;
         }
@@ -50,7 +52,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         final startStr = parts[1].trim();
         final endStr = parts[2].trim();
         final description = parts[3].trim();
-        final location = parts.sublist(4).join(',').trim();
+        final location = parts[4].trim();
+        final link = parts[5].trim();
 
         final startMinutes = _parseTimeToMinutes(startStr);
         final endMinutes = _parseTimeToMinutes(endStr);
@@ -63,6 +66,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           endMinutes: endMinutes,
           description: description,
           location: location,
+          link: link,
         );
 
         byDay.putIfAbsent(dayStr, () => []).add(entry);
@@ -157,7 +161,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 }
 
 class DaySchedule {
-  final String dayLabel; // es. "28/10"
+  final String dayLabel;
   final List<EventEntry> events;
 
   DaySchedule({
@@ -174,6 +178,7 @@ class EventEntry {
   final int endMinutes;
   final String description;
   final String location;
+  final String link;
 
   EventEntry({
     required this.dayLabel,
@@ -183,6 +188,7 @@ class EventEntry {
     required this.endMinutes,
     required this.description,
     required this.location,
+    required this.link,
   });
 }
 
@@ -191,8 +197,26 @@ class _EventCard extends StatelessWidget {
 
   const _EventCard({required this.event});
 
+  Future<void> _openLink() async {
+    if (event.link.isEmpty) return;
+    final uri = Uri.tryParse(event.link);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final locationText = Text(
+      event.location,
+      style: const TextStyle(
+        fontSize: 13,
+        color: Colors.white70,
+        decoration: TextDecoration.underline,
+      ),
+    );
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -233,13 +257,18 @@ class _EventCard extends StatelessWidget {
                     const Icon(Icons.place, size: 16),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Text(
-                        event.location,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white70,
-                        ),
-                      ),
+                      child: event.link.isNotEmpty
+                          ? InkWell(
+                              onTap: _openLink,
+                              child: locationText,
+                            )
+                          : Text(
+                              event.location,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white70,
+                              ),
+                            ),
                     ),
                   ],
                 ),

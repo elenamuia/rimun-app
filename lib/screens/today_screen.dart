@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
 import '../services.dart';
@@ -28,7 +29,8 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 
   Future<List<_TodayEvent>> _loadEventsFromCsv() async {
-    final csvString = await rootBundle.loadString('assets/rimun_calendario_prova.csv');
+    final csvString =
+        await rootBundle.loadString('assets/rimun_calendario_prova.csv');
 
     final lines = csvString
         .split(RegExp(r'\r?\n'))
@@ -39,8 +41,6 @@ class _TodayScreenState extends State<TodayScreen> {
     if (lines.isEmpty) return [];
 
     final List<_TodayEvent> events = [];
-    final now = DateTime.now();
-    final year = now.year;
 
     // salta header se la prima riga è l'header
     int startIndex = 0;
@@ -51,15 +51,17 @@ class _TodayScreenState extends State<TodayScreen> {
     for (var i = startIndex; i < lines.length; i++) {
       final line = lines[i];
       final parts = line.split(',');
-      if (parts.length < 5) {
+      if (parts.length < 6) {
+        // ora ci aspettiamo: day, start, end, desc, location, link
         continue;
       }
 
-      final dayStr = parts[0].trim(); // es "28/10"
+      final dayStr = parts[0].trim(); // es "23/03/2026"
       final startStr = parts[1].trim();
       final endStr = parts[2].trim();
       final description = parts[3].trim();
-      final location = parts.sublist(4).join(',').trim();
+      final location = parts[4].trim();
+      final link = parts[5].trim();
 
       final date = _parseDayToDate(dayStr);
       if (date == null) continue;
@@ -93,6 +95,7 @@ class _TodayScreenState extends State<TodayScreen> {
           endLabel: endStr,
           description: description,
           location: location,
+          link: link,
         ),
       );
     }
@@ -102,30 +105,29 @@ class _TodayScreenState extends State<TodayScreen> {
     return events;
   }
 
-    DateTime? _parseDayToDate(String dayLabel) {
-      try {
-        // Caso 1: formato ISO "2026-03-27"
-        if (dayLabel.contains('-')) {
-          return DateTime.parse(dayLabel);
-        }
-
-        // Caso 2: formato "23/03/2026"
-        if (dayLabel.contains('/')) {
-          final parts = dayLabel.split('/');
-          if (parts.length == 3) {
-            final day = int.parse(parts[0]);
-            final month = int.parse(parts[1]);
-            final year = int.parse(parts[2]);
-            return DateTime(year, month, day);
-          }
-        }
-
-        return null;
-      } catch (_) {
-        return null;
+  DateTime? _parseDayToDate(String dayLabel) {
+    try {
+      // Caso 1: formato ISO "2026-03-23"
+      if (dayLabel.contains('-')) {
+        return DateTime.parse(dayLabel);
       }
-    }
 
+      // Caso 2: formato "23/03/2026"
+      if (dayLabel.contains('/')) {
+        final parts = dayLabel.split('/');
+        if (parts.length == 3) {
+          final day = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+          return DateTime(year, month, day);
+        }
+      }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   TimeOfDay? _parseTime(String time) {
     try {
@@ -190,6 +192,11 @@ class _TodayScreenState extends State<TodayScreen> {
               }
             }
           }
+
+          // fallback: se non c'è nessun evento futuro, mostra almeno il primo
+          if (following == null && events.isNotEmpty) {
+            following = events.first;
+          }
         }
 
         return Padding(
@@ -198,6 +205,18 @@ class _TodayScreenState extends State<TodayScreen> {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: 16),
+
+              // 🔹 Welcome, Nome
+              Text(
+                'Welcome, ${widget.student.name}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               // 🔹 Ongoing
@@ -233,6 +252,7 @@ class _TodayEvent {
   final String endLabel;
   final String description;
   final String location;
+  final String link;
 
   _TodayEvent({
     required this.dayLabel,
@@ -242,6 +262,7 @@ class _TodayEvent {
     required this.endLabel,
     required this.description,
     required this.location,
+    required this.link,
   });
 }
 
@@ -267,8 +288,26 @@ class _EventCardToday extends StatelessWidget {
 
   const _EventCardToday({required this.event});
 
+  Future<void> _openLink() async {
+    if (event.link.isEmpty) return;
+    final uri = Uri.tryParse(event.link);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final locationText = Text(
+      event.location,
+      style: const TextStyle(
+        fontSize: 13,
+        color: Colors.white70,
+        decoration: TextDecoration.underline,
+      ),
+    );
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -297,13 +336,18 @@ class _EventCardToday extends StatelessWidget {
               const Icon(Icons.place, size: 16),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(
-                  event.location,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.white70,
-                  ),
-                ),
+                child: event.link.isNotEmpty
+                    ? InkWell(
+                        onTap: _openLink,
+                        child: locationText,
+                      )
+                    : Text(
+                        event.location,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white70,
+                        ),
+                      ),
               ),
             ],
           ),
