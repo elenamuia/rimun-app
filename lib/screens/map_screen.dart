@@ -1,11 +1,7 @@
-// lib/screens/map_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-class RoomInfo {
-  final String name;
-  final int floor; // 1, 2, 3
-  const RoomInfo(this.name, this.floor);
-}
+enum FloorLevel { ground, first, second, third }
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -15,121 +11,181 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final SearchController _searchController = SearchController();
+  FloorLevel _floor = FloorLevel.ground;
 
-  // Sample dataset. Replace/extend with your actual rooms.
-  final List<RoomInfo> _rooms = const [
-    RoomInfo('A101', 1),
-    RoomInfo('A102', 1),
-    RoomInfo('A201', 2),
-    RoomInfo('A202', 2),
-    RoomInfo('Auditorium', 1),
-    RoomInfo('Segreteria', 1),
-    RoomInfo('B301', 3),
-    RoomInfo('B302', 3),
-  ];
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
 
-  int _selectedFloor = 1;
-  RoomInfo? _selectedRoom;
-
-  final Map<int, String> _floorImages = const {
-    1: 'assets/maps/scuola.jpeg',
-    2: 'assets/maps/scuola.jpeg',
-    3: 'assets/maps/scuola.jpeg',
+  static const _floorLabels = {
+    FloorLevel.ground: 'Ground',
+    FloorLevel.first: 'First',
+    FloorLevel.second: 'Second',
+    FloorLevel.third: 'Third',
   };
 
-  List<String> get _roomNames => _rooms.map((r) => r.name).toList();
+  static const _floorAssets = {
+    FloorLevel.ground: 'assets/maps/ground_floor.svg',
+    FloorLevel.first: 'assets/maps/first_floor.svg',
+    FloorLevel.second: 'assets/maps/second_floor.svg',
+    FloorLevel.third: 'assets/maps/third_floor.svg',
+  };
 
-  void _onRoomSelected(String query) {
-    final match = _rooms.firstWhere(
-      (r) => r.name.toLowerCase() == query.toLowerCase(),
-      orElse: () => RoomInfo(query, _selectedFloor),
-    );
+  /// ✅ QUI metti tu manualmente i nomi delle aule e a che piano stanno.
+  /// Esempi: cambiali con quelli veri.
+  final Map<String, FloorLevel> _rooms = {
+    'Lost & Found': FloorLevel.ground,
+    'Layout Panel': FloorLevel.ground,
+    'Luggage Deposit': FloorLevel.ground,
+    'Dining Area': FloorLevel.ground,
+    'Cafeteria': FloorLevel.ground,
+
+    'GA1': FloorLevel.first,
+    'GA2': FloorLevel.first,
+    'GA3': FloorLevel.first,
+    'GA4': FloorLevel.first,
+    'GA5': FloorLevel.first,
+    'GA6': FloorLevel.first,
+
+    'HRC': FloorLevel.second,
+    'ESCWA': FloorLevel.second,
+    'CESCR': FloorLevel.second,
+    'CSW': FloorLevel.second,
+    'GA2': FloorLevel.second,
+    'CSTD': FloorLevel.second,
+    'CSocD': FloorLevel.second,
+    'CCPCJ': FloorLevel.second,
+    'Approval Panel': FloorLevel.second,
+
+    'CW': FloorLevel.third,
+    'SC': FloorLevel.third,
+    'TC': FloorLevel.third,
+    'HSC': FloorLevel.third,
+    'AC': FloorLevel.third,
+    'CC': FloorLevel.third,
+    'FMI': FloorLevel.third,
+  };
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<String> get _filteredRooms {
+    if (_query.trim().isEmpty) return [];
+    final q = _query.toLowerCase();
+    return _rooms.keys
+        .where((name) => name.toLowerCase().contains(q))
+        .take(8)
+        .toList();
+  }
+
+  void _selectRoom(String roomName) {
+    final floor = _rooms[roomName];
+    if (floor == null) return;
+
     setState(() {
-      _selectedRoom = match;
-      _selectedFloor = match.floor;
+      _floor = floor;
+      _searchCtrl.clear();
+      _query = '';
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$roomName is on ${_floorLabels[floor]} floor'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final asset = _floorAssets[_floor]!;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SearchAnchor.bar(
-            barElevation: const MaterialStatePropertyAll(0),
-            suggestionsBuilder: (context, controller) {
-              final query = controller.text.toLowerCase();
-              final results =
-                  _roomNames
-                      .where((name) => name.toLowerCase().contains(query))
-                      .toList()
-                    ..sort();
-              return results.isEmpty
-                  ? [
-                      ListTile(
-                        title: Text('No results for "${controller.text}"'),
-                        leading: const Icon(Icons.search_off),
-                        onTap: () {},
+          // 🔹 Barra sopra: Piano + Ricerca
+          Card(
+            elevation: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.layers),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Floor:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    ]
-                  : results.map((name) {
-                      return ListTile(
-                        title: Text(name),
-                        leading: const Icon(Icons.meeting_room),
-                        onTap: () {
-                          _searchController.text = name;
-                          _onRoomSelected(name);
-                          controller.closeView(name);
-                        },
-                      );
-                    }).toList();
-            },
-            viewLeading: const Icon(Icons.search),
-            barHintText: 'Search room (e.g. A101)',
-            searchController: _searchController,
-            onSubmitted: (value) => _onRoomSelected(value),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _selectedRoom == null
-                      ? 'Select a room to see its floor'
-                      : '${_selectedRoom!.name} — Floor ${_selectedRoom!.floor}',
-                  style: theme.textTheme.titleMedium,
-                ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButton<FloorLevel>(
+                          value: _floor,
+                          isExpanded: true,
+                          items: FloorLevel.values.map((f) {
+                            return DropdownMenuItem(
+                              value: f,
+                              child: Text(_floorLabels[f]!),
+                            );
+                          }).toList(),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() => _floor = v);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  TextField(
+                    controller: _searchCtrl,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      labelText: 'Search room',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+
+                  // 🔹 Suggerimenti risultati
+                  if (_filteredRooms.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _filteredRooms.map((room) {
+                          return ActionChip(
+                            label: Text(room),
+                            onPressed: () => _selectRoom(room),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              DropdownButton<int>(
-                value: _selectedFloor,
-                items: const [1, 2, 3]
-                    .map(
-                      (f) =>
-                          DropdownMenuItem(value: f, child: Text('Floor $f')),
-                    )
-                    .toList(),
-                onChanged: (f) {
-                  if (f == null) return;
-                  setState(() => _selectedFloor = f);
-                },
-              ),
-            ],
+            ),
           ),
+
           const SizedBox(height: 12),
+
+          // 🔹 Mappa con zoom (minScale 0.5 = 50%)
           Expanded(
-            child: InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 1.5,
-              constrained: true,
-              panEnabled: true,
-              scaleEnabled: true,
-              child: Center(
-                child: Image.asset(
-                  _floorImages[_selectedFloor]!,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: SvgPicture.asset(
+                  asset,
                   fit: BoxFit.contain,
                 ),
               ),

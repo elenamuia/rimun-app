@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   url_launcher: ^6.3.0
+  flutter_svg: ^2.2.3
 
 
 
@@ -68,6 +69,10 @@ flutter:
   - assets/maps/scuola.jpeg
   - assets/logo_frase.png
   - assets/rimun_calendario_prova.csv
+  - assets/maps/ground_floor.svg
+  - assets/maps/first_floor.svg
+  - assets/maps/second_floor.svg
+  - assets/maps/third_floor.svg
 
   # To add assets to your application, add an assets section, like this:
   # assets:
