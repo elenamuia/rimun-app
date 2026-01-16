@@ -31,9 +31,9 @@ class _MapScreenState extends State<MapScreen> {
   };
 
   /// ✅ QUI metti tu manualmente i nomi delle aule e a che piano stanno.
-  /// Esempi: cambiali con quelli veri.
   final Map<String, FloorLevel> _rooms = {
     'Lost & Found': FloorLevel.ground,
+    'Reception': FloorLevel.ground,
     'Layout Panel': FloorLevel.ground,
     'Luggage Deposit': FloorLevel.ground,
     'Dining Area': FloorLevel.ground,
