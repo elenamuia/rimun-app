@@ -50,7 +50,6 @@ class _MapScreenState extends State<MapScreen> {
     'ESCWA': FloorLevel.second,
     'CESCR': FloorLevel.second,
     'CSW': FloorLevel.second,
-    'GA2': FloorLevel.second,
     'CSTD': FloorLevel.second,
     'CSocD': FloorLevel.second,
     'CCPCJ': FloorLevel.second,
