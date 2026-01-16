@@ -48,7 +48,9 @@ class _HomeScreenState extends State<HomeScreen> {
       const ScheduleScreen(),
       const MapScreen(),
       NoticeBoardScreen(
-        noticeStream: _noticeService.listenNotices(),
+      student: widget.student,
+      noticeService: _noticeService,
+      noticeStream: _noticeService.listenNoticesForStudent(widget.student),
       ),
       ProfileScreen(
         student: widget.student,

@@ -68,7 +68,7 @@ class ScheduleService {
   }
 }
 
-class NoticeService{
+class NoticeService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Stream<List<Notice>> listenNotices() {
@@ -91,6 +91,19 @@ class NoticeService{
             }).toList());
   }
 
+  /// ✅ NEW: stream filtrato per utente
+  Stream<List<Notice>> listenNoticesForStudent(Student student) {
+    return listenNotices().map((all) {
+      if (student.isSecretariat) return all; // secretariat vede tutto (e gestisce)
+      final myGroup = student.committee.trim();
+      return all.where((n) {
+        if (n.recipients.isEmpty) return true; // broadcast a tutti
+        if (myGroup.isEmpty) return false;
+        return n.recipients.contains(myGroup);
+      }).toList();
+    });
+  }
+
   Future<void> createNotice({
     required Student author,
     required String title,
@@ -102,10 +115,14 @@ class NoticeService{
       'body': body,
       'recipients': recipients,
       'createdAt': Timestamp.now(),
-      // info autore
       'authorId': author.id,
       'authorName': '${author.name} ${author.surname}'.trim(),
       'authorEmail': author.email,
     });
+  }
+
+  /// ✅ NEW: delete
+  Future<void> deleteNotice(String noticeId) async {
+    await _db.collection('notices').doc(noticeId).delete();
   }
 }
