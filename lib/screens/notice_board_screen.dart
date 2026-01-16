@@ -44,6 +44,88 @@ class NoticeBoardScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openEditDialog(BuildContext context, Notice notice) async {
+    final titleCtrl = TextEditingController(text: notice.title);
+    final bodyCtrl = TextEditingController(text: notice.body);
+    final recipientsCtrl =
+        TextEditingController(text: notice.recipients.join(', '));
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit news'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'Title'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: bodyCtrl,
+                decoration: const InputDecoration(labelText: 'Body'),
+                maxLines: 5,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: recipientsCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Recipients',
+                  hintText: 'e.g. UNHRC, WHO, UNESCO (empty = everyone)',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved != true) return;
+
+    final title = titleCtrl.text.trim();
+    final body = bodyCtrl.text.trim();
+
+    final recipients = recipientsCtrl.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    if (title.isEmpty || body.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Title and body cannot be empty')),
+        );
+      }
+      return;
+    }
+
+    await noticeService.updateNotice(
+      noticeId: notice.id,
+      title: title,
+      body: body,
+      recipients: recipients,
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('News updated')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Notice>>(
@@ -85,15 +167,27 @@ class NoticeBoardScreen extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
 
-                // ✅ delete solo per secretariat
+                // ✅ edit + delete solo per secretariat
                 trailing: student.isSecretariat
                     ? PopupMenuButton<String>(
                         onSelected: (value) {
-                          if (value == 'delete') {
+                          if (value == 'edit') {
+                            _openEditDialog(context, notice);
+                          } else if (value == 'delete') {
                             _confirmAndDelete(context, notice);
                           }
                         },
                         itemBuilder: (ctx) => const [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
+                            ),
+                          ),
                           PopupMenuItem(
                             value: 'delete',
                             child: Row(

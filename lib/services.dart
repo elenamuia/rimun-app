@@ -125,4 +125,19 @@ class NoticeService {
   Future<void> deleteNotice(String noticeId) async {
     await _db.collection('notices').doc(noticeId).delete();
   }
+
+  Future<void> updateNotice({
+  required String noticeId,
+  required String title,
+  required String body,
+  required List<String> recipients,
+  }) async {
+  await _db.collection('notices').doc(noticeId).update({
+    'title': title,
+    'body': body,
+    'recipients': recipients,
+    'updatedAt': Timestamp.now(), // opzionale ma utile
+  });
+  }
+
 }

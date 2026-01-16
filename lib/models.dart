@@ -5,12 +5,11 @@ class Student {
   final String email;
   final String school;
   final String country;
-
-  // 🔹 NUOVO: ruolo
-  final bool isSecretariat;
-
   final String delegation;
   final String committee;
+
+  /// 🔹 Ruolo logico (true = Secretariat, false = Delegate)
+  final bool isSecretariat;
 
   Student({
     required this.id,
@@ -21,7 +20,7 @@ class Student {
     required this.country,
     this.delegation = '',
     this.committee = '',
-    this.isSecretariat = false, // di default è semplice “delegato”
+    this.isSecretariat = false, // default: Delegate
   });
 
   factory Student.fromMap(String id, Map<String, dynamic> data) {
@@ -37,6 +36,9 @@ class Student {
       isSecretariat: data['isSecretariat'] ?? false,
     );
   }
+
+  /// 🔹 Role testuale per UI
+  String get role => isSecretariat ? 'Secretariat' : 'Delegate';
 }
 
 

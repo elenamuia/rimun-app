@@ -13,6 +13,10 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final roleText = student.role; // Delegate / Secretariat
+    final roleIcon =
+        student.isSecretariat ? Icons.admin_panel_settings : Icons.badge;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
@@ -46,6 +50,14 @@ class ProfileScreen extends StatelessWidget {
                   Text(
                     student.email,
                     textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ✅ Role (con icona)
+                  _InfoRow(
+                    icon: roleIcon,
+                    text: 'Role: $roleText',
                   ),
 
                   const Divider(height: 32),
@@ -97,17 +109,14 @@ class ProfileScreen extends StatelessWidget {
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text('Logout'),
-                          content:
-                              const Text('Do you want to disconnect?'),
+                          content: const Text('Do you want to disconnect?'),
                           actions: [
                             TextButton(
-                              onPressed: () =>
-                                  Navigator.pop(context, false),
+                              onPressed: () => Navigator.pop(context, false),
                               child: const Text('Cancel'),
                             ),
                             FilledButton(
-                              onPressed: () =>
-                                  Navigator.pop(context, true),
+                              onPressed: () => Navigator.pop(context, true),
                               child: const Text('Logout'),
                             ),
                           ],
