@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../services.dart';
+import '../services/committee_service.dart';
+
 import 'today_screen.dart';
 import 'map_screen.dart';
 import 'notice_board_screen.dart';
@@ -26,8 +28,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final _scheduleService = ScheduleService();
   final _noticeService = NoticeService();
 
-  // opzioni destinatari per le news
-  final List<String> _recipientOptions = ['GA1', 'GA2', 'GA3'];
+  // 🔹 Committees/rooms dal CSV (una sola lettura)
+  final _committeeService = CommitteeService();
+  late final Future<CommitteeData> _futureCommittees;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureCommittees = _committeeService.loadCommittees();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +70,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F245B),
-
       appBar: AppBar(
         centerTitle: true,
         title: Text(
@@ -69,7 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
           textAlign: TextAlign.center,
         ),
       ),
-
       body: IndexedStack(
         index: _index,
         children: pages,
@@ -126,6 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openCreateNoticeDialog() async {
+    // 🔹 Prendo le opzioni destinatari dal CSV (sincronizzate con MapScreen)
+    final committeeData = await _futureCommittees;
+    final recipientOptions = committeeData.options;
+
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     final Set<String> selectedRecipients = {};
@@ -170,24 +181,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: _recipientOptions.map((r) {
-                    final selected = selectedRecipients.contains(r);
-                    return FilterChip(
-                      label: Text(r),
-                      selected: selected,
-                      onSelected: (v) {
-                        if (v) {
-                          selectedRecipients.add(r);
-                        } else {
-                          selectedRecipients.remove(r);
-                        }
-                        (ctx as Element).markNeedsBuild();
-                      },
-                    );
-                  }).toList(),
-                ),
+
+                if (recipientOptions.isEmpty)
+                  const Text('No recipients available (CSV empty).')
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: recipientOptions.map((r) {
+                      final selected = selectedRecipients.contains(r);
+                      return FilterChip(
+                        label: Text(r),
+                        selected: selected,
+                        onSelected: (v) {
+                          if (v) {
+                            selectedRecipients.add(r);
+                          } else {
+                            selectedRecipients.remove(r);
+                          }
+                          (ctx as Element).markNeedsBuild();
+                        },
+                      );
+                    }).toList(),
+                  ),
               ],
             ),
           ),
@@ -197,10 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Text('Annulla'),
             ),
             FilledButton(
-              onPressed: () {
-                // puoi anche aggiungere una validazione
-                Navigator.pop(ctx, true);
-              },
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Crea evento'),
             ),
           ],
