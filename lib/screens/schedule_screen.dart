@@ -18,6 +18,29 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _futureSchedules = _loadEventsFromCsv();
   }
 
+  /// ✅ Ritorna true se la label del giorno contiene la data di oggi.
+  /// Supporta label tipo: "24/01/2026", "24/01", "24-01-2026", "Friday 24/01", ecc.
+  bool _isTodayLabel(String dayLabel) {
+    final now = DateTime.now();
+
+    final dd = now.day.toString().padLeft(2, '0');
+    final mm = now.month.toString().padLeft(2, '0');
+    final yyyy = now.year.toString();
+
+    final label = dayLabel.trim();
+
+    final candidates = <String>[
+      '$dd/$mm/$yyyy',
+      '$dd/$mm',
+      '$dd-$mm-$yyyy',
+      '$dd-$mm',
+      '${now.day}/${now.month}', // senza padding (es. 4/1)
+      '${now.day}-${now.month}', // senza padding (es. 4-1)
+    ];
+
+    return candidates.any((c) => label.contains(c));
+  }
+
   Future<List<DaySchedule>> _loadEventsFromCsv() async {
     try {
       final csvString =
@@ -78,6 +101,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         result.add(DaySchedule(dayLabel: day, events: events));
       });
 
+      // (opzionale) ordinamento dei giorni per data se la label contiene una data,
+      // altrimenti resta l'ordine di inserimento della mappa.
       return result;
     } catch (e, st) {
       debugPrint('ERRORE CSV: $e');
@@ -127,21 +152,30 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           itemCount: days.length,
           itemBuilder: (context, index) {
             final day = days[index];
+            final isToday = _isTodayLabel(day.dayLabel);
 
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
-              elevation: 4,
+              elevation: isToday ? 6 : 4,
+              color: isToday
+                  ? Colors.indigo.withOpacity(0.35) // 🎯 evidenzia SOLO il giorno corrente
+                  : null,
               child: ExpansionTile(
-                tilePadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                key: PageStorageKey('day_${day.dayLabel}'),
+                initiallyExpanded: isToday,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 title: Text(
                   'Day ${day.dayLabel}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
                 subtitle: Text(
                   '${day.events.length} event${day.events.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                  ),
                 ),
                 childrenPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -153,6 +187,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 }).toList(),
               ),
             );
+
           },
         );
       },
