@@ -23,6 +23,7 @@ class _MapScreenState extends State<MapScreen> {
     FloorLevel.first: 'First',
     FloorLevel.second: 'Second',
     FloorLevel.third: 'Third',
+    FloorLevel.fourth: 'Fourth'
   };
 
   static const _floorAssets = {
@@ -30,6 +31,7 @@ class _MapScreenState extends State<MapScreen> {
     FloorLevel.first: 'assets/maps/first_floor.svg',
     FloorLevel.second: 'assets/maps/second_floor.svg',
     FloorLevel.third: 'assets/maps/third_floor.svg',
+    FloorLevel.fourth: 'assets/maps/fourth_floor.svg'
   };
 
   @override

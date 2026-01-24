@@ -58,15 +58,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ];
 
-    /// 🔹 Titoli dinamici per AppBar
-    final titles = [
-      'Welcome to RIMUN XIX', // Today
-      'Schedule',
-      'Map',
-      'News',
-      'Profile',
-    ];
-
     final bool canCreateNews =
         widget.student.isSecretariat && (_index == 0 || _index == 3);
 

@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart' show rootBundle;
 
-enum FloorLevel { ground, first, second, third }
+enum FloorLevel { ground, first, second, third, fourth }
 
 class CommitteeService {
   Future<CommitteeData> loadCommittees() async {
@@ -58,6 +58,8 @@ class CommitteeService {
         return FloorLevel.second;
       case 'third':
         return FloorLevel.third;
+      case 'fourth':
+        return FloorLevel.fourth;
       default:
         return null;
     }
