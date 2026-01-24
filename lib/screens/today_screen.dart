@@ -4,13 +4,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
 import '../services.dart';
-import 'notice_board_screen.dart';
 
 class TodayScreen extends StatefulWidget {
   final Student student;
-  final ScheduleService scheduleService; // lo teniamo per compatibilità
+  final ScheduleService scheduleService;
 
-  // ✅ NEW: per mostrare alert/info sotto Ongoing/Following
+  // ✅ News per HOME (alert/info)
   final NoticeService noticeService;
   final Stream<List<Notice>> homeNoticeStream;
 
@@ -35,6 +34,205 @@ class _TodayScreenState extends State<TodayScreen> {
     _futureEvents = _loadEventsFromCsv();
   }
 
+  // ---------- NEWS HELPERS ----------
+  Color _noticeCardColor(String type) {
+    switch (type) {
+      case 'alert':
+        return Colors.red.withOpacity(0.22);
+      case 'info':
+        return Colors.lightBlueAccent.withOpacity(0.20);
+      case 'ordinary':
+      default:
+        return Colors.white.withOpacity(0.06);
+    }
+  }
+
+  IconData _noticeIcon(String type) {
+    switch (type) {
+      case 'alert':
+        return Icons.warning_amber_rounded;
+      case 'info':
+        return Icons.info_outline;
+      case 'ordinary':
+      default:
+        return Icons.event;
+    }
+  }
+
+  String _noticeTypeLabel(String type) {
+    switch (type) {
+      case 'alert':
+        return 'Alert';
+      case 'info':
+        return 'Info';
+      case 'ordinary':
+      default:
+        return 'Ordinary';
+    }
+  }
+
+  Future<void> _confirmAndDelete(BuildContext context, Notice notice) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete news?'),
+        content: Text('“${notice.title}” will be permanently deleted.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    await widget.noticeService.deleteNotice(notice.id);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('News deleted')),
+      );
+    }
+  }
+
+  Future<void> _openEditDialog(BuildContext context, Notice notice) async {
+    final titleCtrl = TextEditingController(text: notice.title);
+    final bodyCtrl = TextEditingController(text: notice.body);
+    final recipientsCtrl =
+        TextEditingController(text: notice.recipients.join(', '));
+
+    String selectedType = (notice.type == 'alert' ||
+            notice.type == 'info' ||
+            notice.type == 'ordinary')
+        ? notice.type
+        : 'ordinary';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Edit news'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ✅ type selector
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Type',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                RadioListTile<String>(
+                  value: 'ordinary',
+                  groupValue: selectedType,
+                  onChanged: (v) =>
+                      setState(() => selectedType = v ?? 'ordinary'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Ordinary'),
+                  secondary: const Icon(Icons.event),
+                ),
+                RadioListTile<String>(
+                  value: 'alert',
+                  groupValue: selectedType,
+                  onChanged: (v) =>
+                      setState(() => selectedType = v ?? 'ordinary'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Alert'),
+                  secondary: const Icon(Icons.warning_amber_rounded),
+                ),
+                RadioListTile<String>(
+                  value: 'info',
+                  groupValue: selectedType,
+                  onChanged: (v) =>
+                      setState(() => selectedType = v ?? 'ordinary'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Info'),
+                  secondary: const Icon(Icons.info_outline),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: bodyCtrl,
+                  decoration: const InputDecoration(labelText: 'Body'),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: recipientsCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Recipients',
+                    hintText: 'e.g. UNHRC, WHO, UNESCO (empty = everyone)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) return;
+
+    final title = titleCtrl.text.trim();
+    final body = bodyCtrl.text.trim();
+    final recipients = recipientsCtrl.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    if (title.isEmpty || body.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Title and body cannot be empty')),
+        );
+      }
+      return;
+    }
+
+    await widget.noticeService.updateNotice(
+      noticeId: notice.id,
+      title: title,
+      body: body,
+      recipients: recipients,
+      type: selectedType,
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('News updated')),
+      );
+    }
+  }
+
+  // ---------- EVENTS (CSV) ----------
   Future<List<_TodayEvent>> _loadEventsFromCsv() async {
     final csvString =
         await rootBundle.loadString('assets/rimun_calendario_prova.csv');
@@ -49,7 +247,6 @@ class _TodayScreenState extends State<TodayScreen> {
 
     final List<_TodayEvent> events = [];
 
-    // salta header se la prima riga è l'header
     int startIndex = 0;
     if (lines[0].toLowerCase().startsWith('day')) {
       startIndex = 1;
@@ -58,12 +255,9 @@ class _TodayScreenState extends State<TodayScreen> {
     for (var i = startIndex; i < lines.length; i++) {
       final line = lines[i];
       final parts = line.split(',');
-      if (parts.length < 6) {
-        // ci aspettiamo: day, start, end, desc, location, link
-        continue;
-      }
+      if (parts.length < 6) continue;
 
-      final dayStr = parts[0].trim(); // es "23/03/2026"
+      final dayStr = parts[0].trim();
       final startStr = parts[1].trim();
       final endStr = parts[2].trim();
       final description = parts[3].trim();
@@ -75,7 +269,6 @@ class _TodayScreenState extends State<TodayScreen> {
 
       final startTime = _parseTime(startStr);
       final endTime = _parseTime(endStr);
-
       if (startTime == null || endTime == null) continue;
 
       final startDateTime = DateTime(
@@ -107,19 +300,16 @@ class _TodayScreenState extends State<TodayScreen> {
       );
     }
 
-    // ordina tutti gli eventi per data/ora
     events.sort((a, b) => a.start.compareTo(b.start));
     return events;
   }
 
   DateTime? _parseDayToDate(String dayLabel) {
     try {
-      // Caso 1: formato ISO "2026-03-23"
       if (dayLabel.contains('-') && !dayLabel.contains('/')) {
         return DateTime.parse(dayLabel);
       }
 
-      // Caso 2: formato "23/03/2026"
       if (dayLabel.contains('/')) {
         final parts = dayLabel.split('/');
         if (parts.length == 3) {
@@ -154,9 +344,7 @@ class _TodayScreenState extends State<TodayScreen> {
       future: _futureEvents,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
@@ -175,7 +363,6 @@ class _TodayScreenState extends State<TodayScreen> {
         _TodayEvent? following;
 
         if (events.isNotEmpty) {
-          // trova evento in corso
           for (final e in events) {
             if (!now.isBefore(e.start) && now.isBefore(e.end)) {
               ongoing = e;
@@ -183,7 +370,6 @@ class _TodayScreenState extends State<TodayScreen> {
             }
           }
 
-          // trova evento successivo
           if (ongoing != null) {
             for (final e in events) {
               if (e.start.isAfter(ongoing.end)) {
@@ -200,21 +386,18 @@ class _TodayScreenState extends State<TodayScreen> {
             }
           }
 
-          // fallback: se non c'è nessun evento futuro, mostra almeno il primo
           if (following == null && events.isNotEmpty) {
             following = events.first;
           }
         }
 
-        return Padding(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 16),
 
-              // 🔹 Welcome, Nome
               Text(
                 'Welcome, ${widget.student.name}',
                 textAlign: TextAlign.center,
@@ -226,7 +409,6 @@ class _TodayScreenState extends State<TodayScreen> {
 
               const SizedBox(height: 24),
 
-              // 🔹 Ongoing
               const _SectionTitle(title: 'Ongoing'),
               const SizedBox(height: 8),
               if (ongoing != null)
@@ -236,7 +418,6 @@ class _TodayScreenState extends State<TodayScreen> {
 
               const SizedBox(height: 24),
 
-              // 🔹 Following
               const _SectionTitle(title: 'Following'),
               const SizedBox(height: 8),
               if (following != null)
@@ -246,15 +427,135 @@ class _TodayScreenState extends State<TodayScreen> {
 
               const SizedBox(height: 24),
 
-              // ✅ Announcements (alert/info) DOPO Following
               const _SectionTitle(title: 'Announcements'),
               const SizedBox(height: 8),
-              Expanded(
-                child: NoticeBoardScreen(
-                  student: widget.student,
-                  noticeService: widget.noticeService,
-                  noticeStream: widget.homeNoticeStream,
-                ),
+
+              // ✅ lista news incastonata nello scroll (non scrolla da sola)
+              StreamBuilder<List<Notice>>(
+                stream: widget.homeNoticeStream,
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  if (snap.hasError) {
+                    return Text(
+                      'Error loading announcements.\n${snap.error}',
+                      textAlign: TextAlign.center,
+                    );
+                  }
+
+                  final notices = snap.data ?? [];
+                  if (notices.isEmpty) {
+                    return const _EmptyCard(message: 'No announcements');
+                  }
+
+                  return ListView.builder(
+                    itemCount: notices.length,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemBuilder: (context, index) {
+                      final notice = notices[index];
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        color: _noticeCardColor(notice.type),
+                        child: ExpansionTile(
+                          tilePadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          leading: Icon(
+                            _noticeIcon(notice.type),
+                            color: Colors.white,
+                          ),
+                          title: Text(
+                            notice.title,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+
+                          // ✅ tipo visibile solo al secretariat
+                          subtitle: widget.student.isSecretariat
+                              ? Text(
+                                  _noticeTypeLabel(notice.type),
+                                  style:
+                                      const TextStyle(color: Colors.white70),
+                                )
+                              : null,
+
+                          // ✅ edit/delete anche qui (HOME) per secretariat
+                          trailing: widget.student.isSecretariat
+                              ? PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'edit') {
+                                      _openEditDialog(context, notice);
+                                    } else if (value == 'delete') {
+                                      _confirmAndDelete(context, notice);
+                                    }
+                                  },
+                                  itemBuilder: (ctx) => const [
+                                    PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit_outlined),
+                                          SizedBox(width: 8),
+                                          Text('Edit'),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.delete_outline),
+                                          SizedBox(width: 8),
+                                          Text('Delete'),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : null,
+
+                          childrenPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                notice.body,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+
+                            // ✅ recipients solo secretariat
+                            if (widget.student.isSecretariat &&
+                                notice.recipients.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Recipients: ${notice.recipients.join(', ')}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ],
           ),
@@ -339,16 +640,12 @@ class _EventCardToday extends StatelessWidget {
         children: [
           Text(
             '${event.dayLabel} • ${event.startLabel} - ${event.endLabel}',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
             event.description,
-            style: const TextStyle(
-              fontSize: 16,
-            ),
+            style: const TextStyle(fontSize: 16),
           ),
           const SizedBox(height: 4),
           Row(
