@@ -11,6 +11,7 @@ import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   final bool isFirebaseSupported =
       kIsWeb ||
       defaultTargetPlatform == TargetPlatform.android ||
@@ -32,15 +33,51 @@ class MUNApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseTheme = ThemeData.dark(useMaterial3: true);
+
     return MaterialApp(
       title: 'RIMUN App',
-      theme: ThemeData.dark(useMaterial3: true).copyWith(
+
+      // 🎨 THEME BASE (NON tocchiamo textTheme.apply per evitare crash su web/M3)
+      theme: baseTheme.copyWith(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.indigo,
           brightness: Brightness.dark,
         ),
+        iconTheme: const IconThemeData(
+          size: 22,
+          color: Colors.white,
+        ),
       ),
-      home: LoginWrapper(),
+
+      // 📱 RESPONSIVE SCALING (font + icone) in modo stabile
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        final width = mq.size.width;
+
+        // 390px ≈ iPhone 14
+        final deviceScale = (width / 390.0).clamp(0.95, 1.12);
+
+        // 👇 aumento globale richiesto (sempre)
+        const baseFontScale = 1.08;
+
+        final totalTextScale = mq.textScaleFactor * deviceScale * baseFontScale;
+        final totalIconScale = deviceScale; // icone seguono solo deviceScale
+
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaleFactor: totalTextScale,
+          ),
+          child: IconTheme(
+            data: IconTheme.of(context).copyWith(
+              size: 22 * totalIconScale,
+            ),
+            child: child!,
+          ),
+        );
+      },
+
+      home: const LoginWrapper(),
     );
   }
 }
@@ -59,6 +96,7 @@ class _LoginWrapperState extends State<LoginWrapper> {
   @override
   void initState() {
     super.initState();
+
     final bool isFirebaseSupported =
         kIsWeb ||
         defaultTargetPlatform == TargetPlatform.android ||
@@ -70,6 +108,7 @@ class _LoginWrapperState extends State<LoginWrapper> {
       final authService = AuthService();
       authService.authStateChanges().listen((user) async {
         if (!mounted) return;
+
         if (user == null) {
           setState(() {
             _student = null;
@@ -85,6 +124,7 @@ class _LoginWrapperState extends State<LoginWrapper> {
             school: '',
             country: '',
           );
+
           setState(() {
             _student = basic;
             _loading = false;
@@ -92,7 +132,6 @@ class _LoginWrapperState extends State<LoginWrapper> {
         }
       });
     } else {
-      // On unsupported platforms (e.g., Linux), show login screen without Firebase
       _loading = false;
     }
   }
@@ -100,7 +139,9 @@ class _LoginWrapperState extends State<LoginWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_student == null) {
@@ -121,13 +162,12 @@ class _LoginWrapperState extends State<LoginWrapper> {
               defaultTargetPlatform == TargetPlatform.windows;
 
           if (isFirebaseSupported) {
-            // logout Firebase (se disponibile)
             final authService = AuthService();
             await authService.signOut();
           }
 
           if (mounted) {
-            setState(() => _student = null); // torna alla LoginScreen
+            setState(() => _student = null);
           }
         },
       );

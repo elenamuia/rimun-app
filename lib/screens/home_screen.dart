@@ -74,11 +74,29 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: const Color(0xFF0F245B),
       appBar: AppBar(
         centerTitle: true,
-        title: Text(
-          titles[_index],
-          textAlign: TextAlign.center,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/logo_frase.png',
+              height: 28,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'RIMUN',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
         ),
       ),
+
       body: IndexedStack(
         index: _index,
         children: pages,
