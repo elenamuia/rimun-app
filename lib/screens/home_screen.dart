@@ -41,17 +41,24 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
+      // ✅ HOME/TODAY: eventi + (in fondo) alert/info (gestiti dentro TodayScreen)
       TodayScreen(
         student: widget.student,
         scheduleService: _scheduleService,
+        noticeService: _noticeService,
+        homeNoticeStream: _noticeService.listenHomeNoticesForStudent(widget.student),
       ),
+
       const ScheduleScreen(),
       const MapScreen(),
+
+      // ✅ NEWS tab: mostra SOLO ordinary
       NoticeBoardScreen(
         student: widget.student,
         noticeService: _noticeService,
-        noticeStream: _noticeService.listenNoticesForStudent(widget.student),
+        noticeStream: _noticeService.listenNewsForStudent(widget.student),
       ),
+
       ProfileScreen(
         student: widget.student,
         onLogout: widget.onLogout,
@@ -151,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final descriptionController = TextEditingController();
     final Set<String> selectedRecipients = {};
 
-    // ✅ NEW: tipo news
+    // ✅ tipo news
     String selectedType = 'ordinary';
 
     final result = await showDialog<bool>(
@@ -295,31 +302,55 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // 🔹 Banner giallo di conferma
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    // ✅ Dialog di conferma (stile logout) ma giallo
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
         backgroundColor: Colors.amber,
-        content: const Text('Sei sicuro di voler procedere?'),
-        action: SnackBarAction(
-          label: 'Conferma',
-          textColor: Colors.black,
-          onPressed: () async {
-            await _noticeService.createNotice(
-              author: widget.student,
-              title: title,
-              body: body,
-              recipients: recipients,
-              type: selectedType, // ✅ NEW
-            );
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('News creata'),
-              ),
-            );
-          },
+        title: const Text(
+          'Conferma creazione',
+          style: TextStyle(color: Colors.black),
         ),
+        content: const Text(
+          'Sei sicuro di voler procedere?',
+          style: TextStyle(color: Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Annulla',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.amber,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Conferma'),
+          ),
+        ],
       ),
     );
+
+    if (ok != true) return;
+
+    await _noticeService.createNotice(
+      author: widget.student,
+      title: title,
+      body: body,
+      recipients: recipients,
+      type: selectedType,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('News creata'),
+        ),
+      );
+    }
   }
 }

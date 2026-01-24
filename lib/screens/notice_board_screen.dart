@@ -259,10 +259,13 @@ class NoticeBoardScreen extends StatelessWidget {
                 ),
 
                 // (opzionale ma carino): label tipo sotto al titolo
-                subtitle: Text(
-                  _noticeTypeLabel(notice.type),
-                  style: const TextStyle(color: Colors.white70),
-                ),
+                subtitle: student.isSecretariat
+                ? Text(
+                    _noticeTypeLabel(notice.type),
+                    style: const TextStyle(color: Colors.white70),
+                  )
+                : null,
+
 
                 // ✅ edit + delete solo per secretariat
                 trailing: student.isSecretariat

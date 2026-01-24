@@ -151,4 +151,20 @@ class NoticeService {
       'updatedAt': Timestamp.now(),
     });
   }
+
+Stream<List<Notice>> listenNewsForStudent(Student student) {
+  // Solo ordinary → schermata News
+  return listenNoticesForStudent(student).map(
+    (all) => all.where((n) => n.type == 'ordinary').toList(),
+  );
+}
+
+Stream<List<Notice>> listenHomeNoticesForStudent(Student student) {
+  // Solo alert/info → schermata Home (Today)
+  return listenNoticesForStudent(student).map(
+    (all) => all.where((n) => n.type == 'alert' || n.type == 'info').toList(),
+  );
+}
+
+
 }

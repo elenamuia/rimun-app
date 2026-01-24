@@ -4,15 +4,22 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
 import '../services.dart';
+import 'notice_board_screen.dart';
 
 class TodayScreen extends StatefulWidget {
   final Student student;
   final ScheduleService scheduleService; // lo teniamo per compatibilità
 
+  // ✅ NEW: per mostrare alert/info sotto Ongoing/Following
+  final NoticeService noticeService;
+  final Stream<List<Notice>> homeNoticeStream;
+
   const TodayScreen({
     super.key,
     required this.student,
     required this.scheduleService,
+    required this.noticeService,
+    required this.homeNoticeStream,
   });
 
   @override
@@ -52,7 +59,7 @@ class _TodayScreenState extends State<TodayScreen> {
       final line = lines[i];
       final parts = line.split(',');
       if (parts.length < 6) {
-        // ora ci aspettiamo: day, start, end, desc, location, link
+        // ci aspettiamo: day, start, end, desc, location, link
         continue;
       }
 
@@ -108,7 +115,7 @@ class _TodayScreenState extends State<TodayScreen> {
   DateTime? _parseDayToDate(String dayLabel) {
     try {
       // Caso 1: formato ISO "2026-03-23"
-      if (dayLabel.contains('-')) {
+      if (dayLabel.contains('-') && !dayLabel.contains('/')) {
         return DateTime.parse(dayLabel);
       }
 
@@ -236,6 +243,19 @@ class _TodayScreenState extends State<TodayScreen> {
                 _EventCardToday(event: following)
               else
                 const _EmptyCard(message: 'No upcoming event'),
+
+              const SizedBox(height: 24),
+
+              // ✅ Announcements (alert/info) DOPO Following
+              const _SectionTitle(title: 'Announcements'),
+              const SizedBox(height: 8),
+              Expanded(
+                child: NoticeBoardScreen(
+                  student: widget.student,
+                  noticeService: widget.noticeService,
+                  noticeStream: widget.homeNoticeStream,
+                ),
+              ),
             ],
           ),
         );
