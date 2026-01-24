@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Student {
   final String id;
   final String name;
@@ -41,8 +43,6 @@ class Student {
   String get role => isSecretariat ? 'Secretariat' : 'Delegate';
 }
 
-
-
 class EventItem {
   final String id;
   final String title;
@@ -76,20 +76,47 @@ class Notice {
   final DateTime createdAt;
   final List<String> recipients;
 
+  /// 🔹 NUOVO: tipologia news
+  /// valori attesi: 'ordinary' | 'alert' | 'info'
+  final String type;
+
   Notice({
     required this.id,
     required this.title,
     required this.body,
     required this.createdAt,
     this.recipients = const [],
+    this.type = 'ordinary',
   });
 
   factory Notice.fromMap(String id, Map<String, dynamic> data) {
+    final createdAtRaw = data['createdAt'];
+    DateTime createdAt;
+
+    if (createdAtRaw is Timestamp) {
+      createdAt = createdAtRaw.toDate();
+    } else if (createdAtRaw is DateTime) {
+      createdAt = createdAtRaw;
+    } else {
+      createdAt = DateTime.now();
+    }
+
+    final recipientsRaw = data['recipients'];
+    final recipients = (recipientsRaw is List)
+        ? recipientsRaw.map((e) => e.toString()).toList()
+        : <String>[];
+
+    final typeRaw = (data['type'] ?? 'ordinary').toString().trim();
+    final normalizedType =
+        (typeRaw == 'alert' || typeRaw == 'info') ? typeRaw : 'ordinary';
+
     return Notice(
       id: id,
       title: data['title'] ?? '',
       body: data['body'] ?? '',
-      createdAt: (data['createdAt'] as DateTime?) ?? DateTime.now(),
+      createdAt: createdAt,
+      recipients: recipients,
+      type: normalizedType,
     );
   }
 }

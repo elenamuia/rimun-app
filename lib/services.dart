@@ -71,6 +71,12 @@ class ScheduleService {
 class NoticeService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  String _normalizeType(dynamic raw) {
+    final t = (raw ?? 'ordinary').toString().trim().toLowerCase();
+    if (t == 'alert' || t == 'info' || t == 'ordinary') return t;
+    return 'ordinary';
+  }
+
   Stream<List<Notice>> listenNotices() {
     return _db
         .collection('notices')
@@ -87,14 +93,16 @@ class NoticeService {
                         ?.map((e) => e.toString())
                         .toList() ??
                     [],
+                // ✅ NEW: type
+                type: _normalizeType(data['type']),
               );
             }).toList());
   }
 
-  /// ✅ NEW: stream filtrato per utente
+  /// ✅ stream filtrato per utente
   Stream<List<Notice>> listenNoticesForStudent(Student student) {
     return listenNotices().map((all) {
-      if (student.isSecretariat) return all; // secretariat vede tutto (e gestisce)
+      if (student.isSecretariat) return all;
       final myGroup = student.committee.trim();
       return all.where((n) {
         if (n.recipients.isEmpty) return true; // broadcast a tutti
@@ -109,11 +117,13 @@ class NoticeService {
     required String title,
     required String body,
     required List<String> recipients,
+    required String type, // ✅ NEW
   }) async {
     await _db.collection('notices').add({
       'title': title,
       'body': body,
       'recipients': recipients,
+      'type': _normalizeType(type), // ✅ NEW
       'createdAt': Timestamp.now(),
       'authorId': author.id,
       'authorName': '${author.name} ${author.surname}'.trim(),
@@ -121,23 +131,24 @@ class NoticeService {
     });
   }
 
-  /// ✅ NEW: delete
+  /// ✅ delete
   Future<void> deleteNotice(String noticeId) async {
     await _db.collection('notices').doc(noticeId).delete();
   }
 
   Future<void> updateNotice({
-  required String noticeId,
-  required String title,
-  required String body,
-  required List<String> recipients,
+    required String noticeId,
+    required String title,
+    required String body,
+    required List<String> recipients,
+    required String type, // ✅ NEW
   }) async {
-  await _db.collection('notices').doc(noticeId).update({
-    'title': title,
-    'body': body,
-    'recipients': recipients,
-    'updatedAt': Timestamp.now(), // opzionale ma utile
-  });
+    await _db.collection('notices').doc(noticeId).update({
+      'title': title,
+      'body': body,
+      'recipients': recipients,
+      'type': _normalizeType(type), // ✅ NEW
+      'updatedAt': Timestamp.now(),
+    });
   }
-
 }

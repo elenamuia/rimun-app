@@ -14,6 +14,43 @@ class NoticeBoardScreen extends StatelessWidget {
     required this.noticeStream,
   });
 
+  // ---------- STYLE HELPERS ----------
+  Color _noticeCardColor(String type) {
+    switch (type) {
+      case 'alert':
+        return Colors.red.withOpacity(0.22);
+      case 'info':
+        return Colors.lightBlueAccent.withOpacity(0.20);
+      case 'ordinary':
+      default:
+        return Colors.white.withOpacity(0.06);
+    }
+  }
+
+  IconData _noticeIcon(String type) {
+    switch (type) {
+      case 'alert':
+        return Icons.warning_amber_rounded; // attenzione
+      case 'info':
+        return Icons.info_outline; // info
+      case 'ordinary':
+      default:
+        return Icons.event; // calendario
+    }
+  }
+
+  String _noticeTypeLabel(String type) {
+    switch (type) {
+      case 'alert':
+        return 'Alert';
+      case 'info':
+        return 'Info';
+      case 'ordinary':
+      default:
+        return 'Ordinary';
+    }
+  }
+
   Future<void> _confirmAndDelete(BuildContext context, Notice notice) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -50,45 +87,91 @@ class NoticeBoardScreen extends StatelessWidget {
     final recipientsCtrl =
         TextEditingController(text: notice.recipients.join(', '));
 
+    // ✅ NEW: type
+    String selectedType =
+        (notice.type == 'alert' || notice.type == 'info' || notice.type == 'ordinary')
+            ? notice.type
+            : 'ordinary';
+
     final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit news'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(labelText: 'Title'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: bodyCtrl,
-                decoration: const InputDecoration(labelText: 'Body'),
-                maxLines: 5,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: recipientsCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Recipients',
-                  hintText: 'e.g. UNHRC, WHO, UNESCO (empty = everyone)',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Edit news'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ✅ Type selector (solo secretariat vede l'edit comunque)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Type',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                RadioListTile<String>(
+                  value: 'ordinary',
+                  groupValue: selectedType,
+                  onChanged: (v) => setState(() => selectedType = v ?? 'ordinary'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Ordinary'),
+                  secondary: const Icon(Icons.event),
+                ),
+                RadioListTile<String>(
+                  value: 'alert',
+                  groupValue: selectedType,
+                  onChanged: (v) => setState(() => selectedType = v ?? 'ordinary'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Alert'),
+                  secondary: const Icon(Icons.warning_amber_rounded),
+                ),
+                RadioListTile<String>(
+                  value: 'info',
+                  groupValue: selectedType,
+                  onChanged: (v) => setState(() => selectedType = v ?? 'ordinary'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Info'),
+                  secondary: const Icon(Icons.info_outline),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: bodyCtrl,
+                  decoration: const InputDecoration(labelText: 'Body'),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: recipientsCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Recipients',
+                    hintText: 'e.g. UNHRC, WHO, UNESCO (empty = everyone)',
+                  ),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
@@ -117,6 +200,7 @@ class NoticeBoardScreen extends StatelessWidget {
       title: title,
       body: body,
       recipients: recipients,
+      type: selectedType, // ✅ NEW
     );
 
     if (context.mounted) {
@@ -158,13 +242,26 @@ class NoticeBoardScreen extends StatelessWidget {
 
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
-              color: Colors.white.withOpacity(0.06),
+              color: _noticeCardColor(notice.type),
               child: ExpansionTile(
                 tilePadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+
+                // ✅ Icona a sinistra
+                leading: Icon(
+                  _noticeIcon(notice.type),
+                  color: Colors.white,
+                ),
+
                 title: Text(
                   notice.title,
                   style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+
+                // (opzionale ma carino): label tipo sotto al titolo
+                subtitle: Text(
+                  _noticeTypeLabel(notice.type),
+                  style: const TextStyle(color: Colors.white70),
                 ),
 
                 // ✅ edit + delete solo per secretariat

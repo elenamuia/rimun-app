@@ -48,9 +48,9 @@ class _HomeScreenState extends State<HomeScreen> {
       const ScheduleScreen(),
       const MapScreen(),
       NoticeBoardScreen(
-      student: widget.student,
-      noticeService: _noticeService,
-      noticeStream: _noticeService.listenNoticesForStudent(widget.student),
+        student: widget.student,
+        noticeService: _noticeService,
+        noticeStream: _noticeService.listenNoticesForStudent(widget.student),
       ),
       ProfileScreen(
         student: widget.student,
@@ -87,7 +87,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
       body: IndexedStack(
         index: _index,
         children: pages,
@@ -152,82 +151,131 @@ class _HomeScreenState extends State<HomeScreen> {
     final descriptionController = TextEditingController();
     final Set<String> selectedRecipients = {};
 
+    // ✅ NEW: tipo news
+    String selectedType = 'ordinary';
+
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Create news'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Titolo
-                TextField(
-                  controller: titleController,
-                  maxLength: 100,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                  ),
-                ),
-                const SizedBox(height: 12),
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('Create news'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ✅ Tipo news
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Type',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    RadioListTile<String>(
+                      value: 'ordinary',
+                      groupValue: selectedType,
+                      onChanged: (v) =>
+                          setState(() => selectedType = v ?? 'ordinary'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Ordinary'),
+                      secondary: const Icon(Icons.event),
+                    ),
+                    RadioListTile<String>(
+                      value: 'alert',
+                      groupValue: selectedType,
+                      onChanged: (v) =>
+                          setState(() => selectedType = v ?? 'ordinary'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Alert'),
+                      secondary: const Icon(Icons.warning_amber_rounded),
+                    ),
+                    RadioListTile<String>(
+                      value: 'info',
+                      groupValue: selectedType,
+                      onChanged: (v) =>
+                          setState(() => selectedType = v ?? 'ordinary'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Info'),
+                      secondary: const Icon(Icons.info_outline),
+                    ),
+                    const SizedBox(height: 12),
 
-                // Descrizione
-                TextField(
-                  controller: descriptionController,
-                  maxLines: 4,
-                  maxLength: 500,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 16),
+                    // Titolo
+                    TextField(
+                      controller: titleController,
+                      maxLength: 100,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
-                // Destinatari (multi-selezione)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Recipients',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                    // Descrizione
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 4,
+                      maxLength: 500,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-                if (recipientOptions.isEmpty)
-                  const Text('No recipients available (CSV empty).')
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: recipientOptions.map((r) {
-                      final selected = selectedRecipients.contains(r);
-                      return FilterChip(
-                        label: Text(r),
-                        selected: selected,
-                        onSelected: (v) {
-                          if (v) {
-                            selectedRecipients.add(r);
-                          } else {
-                            selectedRecipients.remove(r);
-                          }
-                          (ctx as Element).markNeedsBuild();
-                        },
-                      );
-                    }).toList(),
-                  ),
+                    // Destinatari (multi-selezione)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Recipients',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    if (recipientOptions.isEmpty)
+                      const Text('No recipients available (CSV empty).')
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: recipientOptions.map((r) {
+                          final selected = selectedRecipients.contains(r);
+                          return FilterChip(
+                            label: Text(r),
+                            selected: selected,
+                            onSelected: (v) {
+                              setState(() {
+                                if (v) {
+                                  selectedRecipients.add(r);
+                                } else {
+                                  selectedRecipients.remove(r);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Annulla'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Crea news'),
+                ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annulla'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Crea evento'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -261,11 +309,12 @@ class _HomeScreenState extends State<HomeScreen> {
               title: title,
               body: body,
               recipients: recipients,
+              type: selectedType, // ✅ NEW
             );
 
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Evento creato'),
+                content: Text('News creata'),
               ),
             );
           },
