@@ -35,6 +35,85 @@ class _TodayScreenState extends State<TodayScreen> {
     _futureEvents = _loadEventsFromCsv();
   }
 
+  // ---------- GREETING HELPERS (RIMUN) ----------
+  static const Map<String, List<String>> _messagesByGreeting = {
+    "Goodmorning": [
+      "Goodmorning, [Nome]! Ready to craft resolutions and make global change today?",
+      "Goodmorning, [Nome]! New debates are waiting — time to represent your delegation!",
+      "Goodmorning, [Nome]! Grab your notes and let’s start with purpose.",
+      "Goodmorning, [Nome]! Let the diplomacy begin!",
+    ],
+    "GoodAfternoon": [
+      "GoodAfternoon, [Nome]! How’s your committee strategy looking?",
+      "GoodAfternoon, [Nome]! Keep your speeches sharp and ideas sharper.",
+      "GoodAfternoon, [Nome]! Time for alliances and breakthrough solutions.",
+    ],
+    "GoodEvening": [
+      "GoodEvening, [Nome]! Great work so far, let’s refine your final arguments.",
+      "GoodEvening, [Nome]! A round of applause for today’s debates — rest up.",
+      "GoodEvening, [Nome]! Reflect on today’s diplomacy and recharge for tomorrow.",
+      "GoodEvening, [Nome]! Ready for tomorrow’s challenge?",
+    ],
+    "Goodnight": [
+      "Goodnight, [Nome]! Even diplomats need rest — tomorrow brings new sessions.",
+      "Goodnight, [Nome]! Put your phone down — tomorrow’s resolutions await!",
+      "Goodnight, [Nome]! Peaceful dreams of global solutions.",
+      "Goodnight, [Nome]! Recharge your energy for decisive debates ahead.",
+    ],
+  };
+
+  String _greetingLabel(DateTime now) {
+    final h = now.hour;
+    final m = now.minute;
+
+    bool atOrAfter(int hh, int mm) => (h > hh) || (h == hh && m >= mm);
+    bool atOrBefore(int hh, int mm) => (h < hh) || (h == hh && m <= mm);
+
+    // Goodmorning: 06:00–12:00
+    if (atOrAfter(6, 0) && atOrBefore(12, 0)) return "Goodmorning";
+    // GoodAfternoon: 12:01–18:00
+    if (atOrAfter(12, 1) && atOrBefore(18, 0)) return "GoodAfternoon";
+    // GoodEvening: 18:01–22:00
+    if (atOrAfter(18, 1) && atOrBefore(22, 0)) return "GoodEvening";
+    // Goodnight: 22:01–05:59
+    return "Goodnight";
+  }
+
+  int _dayOfYear(DateTime d) {
+    final start = DateTime(d.year, 1, 1);
+    return d.difference(start).inDays + 1;
+  }
+
+  String _pickDailyFullMessage({
+    required String userName,
+    required String stableSalt,
+    required DateTime now,
+  }) {
+    final greeting = _greetingLabel(now);
+    final list = _messagesByGreeting[greeting] ?? const <String>["Hi, [Nome]!"];
+
+    // Seed: stesso giorno + stessa fascia + stesso utente => stessa frase
+    final seed = (_dayOfYear(now) * 1000) ^ greeting.hashCode ^ stableSalt.hashCode;
+    final idx = seed.abs() % list.length;
+
+    return list[idx].replaceAll("[Nome]", userName);
+  }
+
+  /// Mostriamo la riga 1 separata ("Good..., Nome"),
+  /// quindi estraiamo qui solo la parte successiva dopo "Greeting, Nome!"
+  String _extractSubMessage({
+    required String fullMessage,
+    required String greeting,
+    required String userName,
+  }) {
+    final prefix = "$greeting, $userName!";
+    if (fullMessage.startsWith(prefix)) {
+      final rest = fullMessage.substring(prefix.length).trimLeft();
+      return rest.isEmpty ? "" : rest;
+    }
+    return fullMessage; // fallback
+  }
+
   // ---------- NEWS HELPERS ----------
   Color _noticeCardColor(String type) {
     switch (type) {
@@ -76,171 +155,107 @@ class _TodayScreenState extends State<TodayScreen> {
   void _wrapSelection(TextEditingController c, String left, String right) {
     final text = c.text;
     final sel = c.selection;
+    if (!sel.isValid) return;
 
-    final start = sel.isValid ? sel.start : text.length;
-    final end = sel.isValid ? sel.end : text.length;
-
-    if (start == end) {
-      final insert = '${left}testo${right}';
-      c.text = text.replaceRange(start, end, insert);
-      c.selection = TextSelection(
-        baseOffset: start + left.length,
-        extentOffset: start + left.length + 5,
-      );
-      return;
-    }
+    final start = sel.start < 0 ? 0 : sel.start;
+    final end = sel.end < 0 ? 0 : sel.end;
 
     final selected = text.substring(start, end);
-    final replaced = '$left$selected$right';
-    c.text = text.replaceRange(start, end, replaced);
-    c.selection =
-        TextSelection(baseOffset: start, extentOffset: start + replaced.length);
+    final replaced = "$left$selected$right";
+
+    final newText = text.replaceRange(start, end, replaced);
+    c.value = c.value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + replaced.length),
+    );
   }
 
   void _insertLinkTemplate(TextEditingController c) {
     final text = c.text;
     final sel = c.selection;
-    final pos = sel.isValid ? sel.start : text.length;
+    final insertAt = sel.isValid ? sel.start : text.length;
 
-    const insert = '[testo](https://example.com)';
-    c.text = text.replaceRange(pos, pos, insert);
-    c.selection = TextSelection.collapsed(offset: pos + 1);
-  }
+    const template = "[Link text](https://example.com)";
+    final newText = text.replaceRange(insertAt, insertAt, template);
 
-  Future<void> _confirmAndDelete(BuildContext context, Notice notice) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete news?'),
-        content: Text('“${notice.title}” will be permanently deleted.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    c.value = c.value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: insertAt + template.length),
     );
-
-    if (ok != true) return;
-
-    await widget.noticeService.deleteNotice(notice.id);
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('News deleted')),
-      );
-    }
   }
 
   Future<void> _openEditDialog(BuildContext context, Notice notice) async {
     final titleCtrl = TextEditingController(text: notice.title);
     final bodyCtrl = TextEditingController(text: notice.body);
-    final recipientsCtrl =
-        TextEditingController(text: notice.recipients.join(', '));
-
-    String selectedType = (notice.type == 'alert' ||
-            notice.type == 'info' ||
-            notice.type == 'ordinary')
-        ? notice.type
-        : 'ordinary';
+    final recipientsCtrl = TextEditingController(text: notice.recipients.join(', '));
+    String selectedType = notice.type;
 
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
+        builder: (ctx, setSt) => AlertDialog(
           title: const Text('Edit news'),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ✅ type selector
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Type',
-                    style: Theme.of(context).textTheme.titleMedium,
+            child: SizedBox(
+              width: 520,
+              child: Column(
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedType,
+                    decoration: const InputDecoration(labelText: 'Type'),
+                    items: const [
+                      DropdownMenuItem(value: 'ordinary', child: Text('Ordinary')),
+                      DropdownMenuItem(value: 'alert', child: Text('Alert')),
+                      DropdownMenuItem(value: 'info', child: Text('Info')),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setSt(() => selectedType = v);
+                    },
                   ),
-                ),
-                const SizedBox(height: 6),
-                RadioListTile<String>(
-                  value: 'ordinary',
-                  groupValue: selectedType,
-                  onChanged: (v) =>
-                      setState(() => selectedType = v ?? 'ordinary'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Ordinary'),
-                  secondary: const Icon(Icons.event),
-                ),
-                RadioListTile<String>(
-                  value: 'alert',
-                  groupValue: selectedType,
-                  onChanged: (v) =>
-                      setState(() => selectedType = v ?? 'ordinary'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Alert'),
-                  secondary: const Icon(Icons.warning_amber_rounded),
-                ),
-                RadioListTile<String>(
-                  value: 'info',
-                  groupValue: selectedType,
-                  onChanged: (v) =>
-                      setState(() => selectedType = v ?? 'ordinary'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Info'),
-                  secondary: const Icon(Icons.info_outline),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'Title'),
+                  ),
+                  const SizedBox(height: 12),
 
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Title'),
-                ),
-                const SizedBox(height: 12),
-
-                // ✅ toolbar markdown
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Bold',
-                      icon: const Icon(Icons.format_bold),
-                      onPressed: () => _wrapSelection(bodyCtrl, '**', '**'),
-                    ),
-                    IconButton(
-                      tooltip: 'Italic',
-                      icon: const Icon(Icons.format_italic),
-                      onPressed: () => _wrapSelection(bodyCtrl, '*', '*'),
-                    ),
-                    IconButton(
-                      tooltip: 'Link',
-                      icon: const Icon(Icons.link),
-                      onPressed: () => _insertLinkTemplate(bodyCtrl),
-                    ),
-                  ],
-                ),
-                TextField(
-                  controller: bodyCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Body (Markdown supported)',
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Bold',
+                        icon: const Icon(Icons.format_bold),
+                        onPressed: () => _wrapSelection(bodyCtrl, '**', '**'),
+                      ),
+                      IconButton(
+                        tooltip: 'Italic',
+                        icon: const Icon(Icons.format_italic),
+                        onPressed: () => _wrapSelection(bodyCtrl, '*', '*'),
+                      ),
+                      IconButton(
+                        tooltip: 'Link',
+                        icon: const Icon(Icons.link),
+                        onPressed: () => _insertLinkTemplate(bodyCtrl),
+                      ),
+                    ],
                   ),
-                  maxLines: 6,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: recipientsCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Recipients',
-                    hintText: 'e.g. UNHRC, WHO, UNESCO (empty = everyone)',
+                  TextField(
+                    controller: bodyCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Body (Markdown supported)',
+                    ),
+                    maxLines: 6,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: recipientsCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Recipients',
+                      hintText: 'e.g. UNHRC, WHO, UNESCO (empty = everyone)',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -291,10 +306,39 @@ class _TodayScreenState extends State<TodayScreen> {
     }
   }
 
+  Future<void> _confirmAndDelete(BuildContext context, Notice notice) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete news?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    await widget.noticeService.deleteNotice(notice.id);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('News deleted')),
+      );
+    }
+  }
+
   // ---------- EVENTS (CSV) ----------
   Future<List<_TodayEvent>> _loadEventsFromCsv() async {
-    final csvString =
-        await rootBundle.loadString('assets/rimun_calendario_prova.csv');
+    final csvString = await rootBundle.loadString('assets/rimun_calendario_prova.csv');
 
     final lines = csvString
         .split(RegExp(r'\r?\n'))
@@ -456,31 +500,64 @@ class _TodayScreenState extends State<TodayScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 16),
-              Text(
-                'Welcome, ${widget.student.name}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+
+              // ✅ Greeting + frase (per utente, per giorno)
+              Builder(
+                builder: (context) {
+                  final nowLocal = DateTime.now();
+                  final greeting = _greetingLabel(nowLocal);
+
+                  final stableSalt = widget.student.id.isNotEmpty
+                      ? widget.student.id
+                      : widget.student.email;
+
+                  final full = _pickDailyFullMessage(
+                    userName: widget.student.name,
+                    stableSalt: stableSalt,
+                    now: nowLocal,
+                  );
+
+                  final sub = _extractSubMessage(
+                    fullMessage: full,
+                    greeting: greeting,
+                    userName: widget.student.name,
+                  );
+
+                  return Column(
+                    children: [
+                      Text(
+                        '$greeting, ${widget.student.name}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        sub,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.75),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
+
               const SizedBox(height: 24),
 
               const _SectionTitle(title: 'Ongoing'),
               const SizedBox(height: 8),
-              if (ongoing != null)
-                _EventCardToday(event: ongoing)
-              else
-                const _EmptyCard(message: 'No event in progress'),
+              if (ongoing != null) _EventCardToday(event: ongoing) else const _EmptyCard(message: 'No event in progress'),
 
               const SizedBox(height: 24),
 
               const _SectionTitle(title: 'Following'),
               const SizedBox(height: 8),
-              if (following != null)
-                _EventCardToday(event: following)
-              else
-                const _EmptyCard(message: 'No upcoming event'),
+              if (following != null) _EventCardToday(event: following) else const _EmptyCard(message: 'No upcoming event'),
 
               const SizedBox(height: 24),
 
@@ -517,21 +594,21 @@ class _TodayScreenState extends State<TodayScreen> {
                     itemBuilder: (context, index) {
                       final notice = notices[index];
 
+                      // HOME: mostra solo alert/info (se vuoi)
+                      // Se vuoi mostrarle tutte anche qui, commenta il filtro.
+                      if (notice.type == 'ordinary') {
+                        return const SizedBox.shrink();
+                      }
+
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         color: _noticeCardColor(notice.type),
                         child: ExpansionTile(
-                          tilePadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          leading: Icon(
-                            _noticeIcon(notice.type),
-                            color: Colors.white,
-                          ),
+                          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          leading: Icon(_noticeIcon(notice.type), color: Colors.white),
                           title: Text(
                             notice.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                           subtitle: widget.student.isSecretariat
                               ? Text(
@@ -572,23 +649,15 @@ class _TodayScreenState extends State<TodayScreen> {
                                   ],
                                 )
                               : null,
-                          childrenPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
+                          childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           children: [
                             Align(
                               alignment: Alignment.centerLeft,
                               child: MarkdownBody(
                                 data: notice.body,
                                 selectable: true,
-                                styleSheet: MarkdownStyleSheet.fromTheme(
-                                  Theme.of(context),
-                                ).copyWith(
-                                  p: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white,
-                                  ),
+                                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                  p: const TextStyle(fontSize: 14, color: Colors.white),
                                   a: const TextStyle(
                                     color: Colors.lightBlueAccent,
                                     decoration: TextDecoration.underline,
@@ -598,24 +667,17 @@ class _TodayScreenState extends State<TodayScreen> {
                                   if (href == null) return;
                                   final uri = Uri.tryParse(href);
                                   if (uri == null) return;
-                                  await launchUrl(
-                                    uri,
-                                    mode: LaunchMode.externalApplication,
-                                  );
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
                                 },
                               ),
                             ),
-                            if (widget.student.isSecretariat &&
-                                notice.recipients.isNotEmpty) ...[
+                            if (widget.student.isSecretariat && notice.recipients.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   'Recipients: ${notice.recipients.join(', ')}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white70,
-                                  ),
+                                  style: const TextStyle(fontSize: 12, color: Colors.white70),
                                 ),
                               ),
                             ],
@@ -668,6 +730,7 @@ class _SectionTitle extends StatelessWidget {
       style: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.bold,
+        color: Colors.white,
       ),
     );
   }
@@ -709,30 +772,24 @@ class _EventCardToday extends StatelessWidget {
         children: [
           Text(
             '${event.dayLabel} • ${event.startLabel} - ${event.endLabel}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 6),
           Text(
             event.description,
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(fontSize: 16, color: Colors.white),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.place, size: 16),
+              const Icon(Icons.place, size: 16, color: Colors.white70),
               const SizedBox(width: 4),
               Expanded(
                 child: event.link.isNotEmpty
-                    ? InkWell(
-                        onTap: _openLink,
-                        child: locationText,
-                      )
+                    ? InkWell(onTap: _openLink, child: locationText)
                     : Text(
                         event.location,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white70,
-                        ),
+                        style: const TextStyle(fontSize: 13, color: Colors.white70),
                       ),
               ),
             ],
@@ -758,10 +815,7 @@ class _EmptyCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Text(
         message,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Colors.white70,
-        ),
+        style: const TextStyle(fontSize: 14, color: Colors.white70),
       ),
     );
   }
