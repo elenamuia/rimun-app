@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NoticeBoardScreen extends StatelessWidget {
   final Student student;
@@ -307,9 +309,22 @@ class NoticeBoardScreen extends StatelessWidget {
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      notice.body,
-                      style: const TextStyle(fontSize: 14),
+                    child: MarkdownBody(
+                      data: notice.body,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                        p: const TextStyle(fontSize: 14, color: Colors.white),
+                        a: const TextStyle(
+                          color: Colors.lightBlueAccent,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                      onTapLink: (text, href, title) async {
+                        if (href == null) return;
+                        final uri = Uri.tryParse(href);
+                        if (uri == null) return;
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      },
                     ),
                   ),
 

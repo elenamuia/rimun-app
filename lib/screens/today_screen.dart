@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models.dart';
 import '../services.dart';
@@ -69,6 +70,41 @@ class _TodayScreenState extends State<TodayScreen> {
       default:
         return 'Ordinary';
     }
+  }
+
+  // Toolbar helpers (bold/italic/link) for TextEditingController
+  void _wrapSelection(TextEditingController c, String left, String right) {
+    final text = c.text;
+    final sel = c.selection;
+
+    final start = sel.isValid ? sel.start : text.length;
+    final end = sel.isValid ? sel.end : text.length;
+
+    if (start == end) {
+      final insert = '${left}testo${right}';
+      c.text = text.replaceRange(start, end, insert);
+      c.selection = TextSelection(
+        baseOffset: start + left.length,
+        extentOffset: start + left.length + 5,
+      );
+      return;
+    }
+
+    final selected = text.substring(start, end);
+    final replaced = '$left$selected$right';
+    c.text = text.replaceRange(start, end, replaced);
+    c.selection =
+        TextSelection(baseOffset: start, extentOffset: start + replaced.length);
+  }
+
+  void _insertLinkTemplate(TextEditingController c) {
+    final text = c.text;
+    final sel = c.selection;
+    final pos = sel.isValid ? sel.start : text.length;
+
+    const insert = '[testo](https://example.com)';
+    c.text = text.replaceRange(pos, pos, insert);
+    c.selection = TextSelection.collapsed(offset: pos + 1);
   }
 
   Future<void> _confirmAndDelete(BuildContext context, Notice notice) async {
@@ -168,10 +204,33 @@ class _TodayScreenState extends State<TodayScreen> {
                   decoration: const InputDecoration(labelText: 'Title'),
                 ),
                 const SizedBox(height: 12),
+
+                // ✅ toolbar markdown
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Bold',
+                      icon: const Icon(Icons.format_bold),
+                      onPressed: () => _wrapSelection(bodyCtrl, '**', '**'),
+                    ),
+                    IconButton(
+                      tooltip: 'Italic',
+                      icon: const Icon(Icons.format_italic),
+                      onPressed: () => _wrapSelection(bodyCtrl, '*', '*'),
+                    ),
+                    IconButton(
+                      tooltip: 'Link',
+                      icon: const Icon(Icons.link),
+                      onPressed: () => _insertLinkTemplate(bodyCtrl),
+                    ),
+                  ],
+                ),
                 TextField(
                   controller: bodyCtrl,
-                  decoration: const InputDecoration(labelText: 'Body'),
-                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Body (Markdown supported)',
+                  ),
+                  maxLines: 6,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -397,7 +456,6 @@ class _TodayScreenState extends State<TodayScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 16),
-
               Text(
                 'Welcome, ${widget.student.name}',
                 textAlign: TextAlign.center,
@@ -406,7 +464,6 @@ class _TodayScreenState extends State<TodayScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 24),
 
               const _SectionTitle(title: 'Ongoing'),
@@ -430,7 +487,6 @@ class _TodayScreenState extends State<TodayScreen> {
               const _SectionTitle(title: 'Announcements'),
               const SizedBox(height: 8),
 
-              // ✅ lista news incastonata nello scroll (non scrolla da sola)
               StreamBuilder<List<Notice>>(
                 stream: widget.homeNoticeStream,
                 builder: (context, snap) {
@@ -477,17 +533,12 @@ class _TodayScreenState extends State<TodayScreen> {
                             notice.title,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-
-                          // ✅ tipo visibile solo al secretariat
                           subtitle: widget.student.isSecretariat
                               ? Text(
                                   _noticeTypeLabel(notice.type),
-                                  style:
-                                      const TextStyle(color: Colors.white70),
+                                  style: const TextStyle(color: Colors.white70),
                                 )
                               : null,
-
-                          // ✅ edit/delete anche qui (HOME) per secretariat
                           trailing: widget.student.isSecretariat
                               ? PopupMenuButton<String>(
                                   onSelected: (value) {
@@ -521,7 +572,6 @@ class _TodayScreenState extends State<TodayScreen> {
                                   ],
                                 )
                               : null,
-
                           childrenPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 8,
@@ -529,13 +579,32 @@ class _TodayScreenState extends State<TodayScreen> {
                           children: [
                             Align(
                               alignment: Alignment.centerLeft,
-                              child: Text(
-                                notice.body,
-                                style: const TextStyle(fontSize: 14),
+                              child: MarkdownBody(
+                                data: notice.body,
+                                selectable: true,
+                                styleSheet: MarkdownStyleSheet.fromTheme(
+                                  Theme.of(context),
+                                ).copyWith(
+                                  p: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                  ),
+                                  a: const TextStyle(
+                                    color: Colors.lightBlueAccent,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                                onTapLink: (text, href, title) async {
+                                  if (href == null) return;
+                                  final uri = Uri.tryParse(href);
+                                  if (uri == null) return;
+                                  await launchUrl(
+                                    uri,
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                },
                               ),
                             ),
-
-                            // ✅ recipients solo secretariat
                             if (widget.student.isSecretariat &&
                                 notice.recipients.isNotEmpty) ...[
                               const SizedBox(height: 8),
