@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'models.dart';
 import 'services.dart';
@@ -12,6 +13,13 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Load environment variables (API base URL, etc.)
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Fallback silently if .env is missing; defaults will be used
+  }
+
   final bool isFirebaseSupported =
       kIsWeb ||
       defaultTargetPlatform == TargetPlatform.android ||
@@ -20,9 +28,13 @@ void main() async {
       defaultTargetPlatform == TargetPlatform.windows;
 
   if (isFirebaseSupported) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (_) {
+      // In tests or unsupported envs, ignore initialization errors
+    }
   }
 
   runApp(const MUNApp());
@@ -44,10 +56,7 @@ class MUNApp extends StatelessWidget {
           seedColor: Colors.indigo,
           brightness: Brightness.dark,
         ),
-        iconTheme: const IconThemeData(
-          size: 22,
-          color: Colors.white,
-        ),
+        iconTheme: const IconThemeData(size: 22, color: Colors.white),
       ),
 
       // 📱 RESPONSIVE SCALING (font + icone) in modo stabile
@@ -65,13 +74,9 @@ class MUNApp extends StatelessWidget {
         final totalIconScale = deviceScale; // icone seguono solo deviceScale
 
         return MediaQuery(
-          data: mq.copyWith(
-            textScaleFactor: totalTextScale,
-          ),
+          data: mq.copyWith(textScaler: TextScaler.linear(totalTextScale)),
           child: IconTheme(
-            data: IconTheme.of(context).copyWith(
-              size: 22 * totalIconScale,
-            ),
+            data: IconTheme.of(context).copyWith(size: 22 * totalIconScale),
             child: child!,
           ),
         );
@@ -105,32 +110,40 @@ class _LoginWrapperState extends State<LoginWrapper> {
         defaultTargetPlatform == TargetPlatform.windows;
 
     if (isFirebaseSupported) {
-      final authService = AuthService();
-      authService.authStateChanges().listen((user) async {
-        if (!mounted) return;
+      try {
+        final authService = AuthService();
+        authService.authStateChanges().listen((user) async {
+          if (!mounted) return;
 
-        if (user == null) {
-          setState(() {
-            _student = null;
-            _loading = false;
-          });
-        } else {
-          final email = user.email ?? '';
-          final basic = Student(
-            id: user.uid,
-            name: email.isNotEmpty ? email.split('@').first : 'Studente',
-            surname: '',
-            email: email,
-            school: '',
-            country: '',
-          );
+          if (user == null) {
+            setState(() {
+              _student = null;
+              _loading = false;
+            });
+          } else {
+            final email = user.email ?? '';
+            final basic = Student(
+              id: user.uid,
+              name: email.isNotEmpty ? email.split('@').first : 'Studente',
+              surname: '',
+              email: email,
+              school: '',
+              country: '',
+            );
 
-          setState(() {
-            _student = basic;
-            _loading = false;
-          });
-        }
-      });
+            setState(() {
+              _student = basic;
+              _loading = false;
+            });
+          }
+        });
+      } catch (_) {
+        // If Firebase is not initialized or unavailable in tests, show login
+        setState(() {
+          _student = null;
+          _loading = false;
+        });
+      }
     } else {
       _loading = false;
     }
@@ -139,9 +152,7 @@ class _LoginWrapperState extends State<LoginWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_student == null) {

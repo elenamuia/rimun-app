@@ -1,16 +1,45 @@
-# rimun_app
+# RIMUN App
 
-A new Flutter project.
+Flutter client for RIMUN with Firebase auth/notices and FastAPI backend for data.
 
-## Getting Started
+## Setup
 
-This project is a starting point for a Flutter application.
+1) Create an environment file:
 
-A few resources to get you started if this is your first Flutter project:
+```
+cp .env.example .env
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Edit `.env` to set your server URL:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+API_BASE_URL=http://127.0.0.1:8081
+```
+
+2) Install dependencies:
+
+```
+flutter pub get
+```
+
+3) Run the app:
+
+```
+flutter run
+```
+
+## Backend Contract
+
+See `docs/api-rimun.md` for available endpoints (health, forums, committees, delegates, sessions, posts).
+
+## Quick Check (optional)
+
+You can verify connectivity by calling the service in a widget/init state:
+
+```dart
+import 'package:rimun_app/services/rimun_api_service.dart';
+
+final api = RimunApiService();
+final ok = await api.isServerHealthy(); // expect true
+```
+
