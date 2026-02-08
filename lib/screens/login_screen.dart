@@ -129,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // 🔹 LOGO DI SFONDO (INGRANDITO)
           Center(
               child: Opacity(
-                opacity: 0.07,
+                opacity: 0.10,
                 child: OverflowBox(
                   maxWidth: double.infinity,
                   maxHeight: double.infinity,
