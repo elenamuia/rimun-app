@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // ===============================
       // 🔐 LOGIN DEMO (mettere false per il release)
       // ===============================
-      
+
       if (enableDemoLogin) {
         // Utente demo (delegato)
         if (email == 'demo@rimun.it' && password == '123') {
@@ -126,17 +126,20 @@ class _LoginScreenState extends State<LoginScreen> {
             color: const Color(0xFF0F245B),
           ),
 
-          // 🔹 LOGO DI SFONDO
+          // 🔹 LOGO DI SFONDO (INGRANDITO)
           Center(
-            child: Opacity(
-              opacity: 0.10,
-              child: Image.asset(
-                'assets/logo_frase.png',
-                width: 700,
-                fit: BoxFit.contain,
+              child: Opacity(
+                opacity: 0.07,
+                child: OverflowBox(
+                  maxWidth: double.infinity,
+                  maxHeight: double.infinity,
+                  child: Image.asset(
+                    'assets/logo_frase.png',
+                    width: MediaQuery.of(context).size.width * 1.6,
+                  ),
+                ),
               ),
             ),
-          ),
 
           // 🔹 CARD LOGIN
           Center(

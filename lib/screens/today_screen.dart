@@ -499,7 +499,7 @@ class _TodayScreenState extends State<TodayScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // ✅ Greeting + frase (per utente, per giorno)
               Builder(
