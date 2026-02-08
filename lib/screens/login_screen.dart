@@ -32,10 +32,12 @@ class _LoginScreenState extends State<LoginScreen> {
       final email = _emailCtrl.text.trim();
       final password = _passwordCtrl.text.trim();
 
+      const enableDemoLogin = true;
       // ===============================
-      // 🔐 LOGIN DEMO (solo in DEBUG)
+      // 🔐 LOGIN DEMO (mettere false per il release)
       // ===============================
-      if (kDebugMode) {
+      
+      if (enableDemoLogin) {
         // Utente demo (delegato)
         if (email == 'demo@rimun.it' && password == '123') {
           final student = Student(
