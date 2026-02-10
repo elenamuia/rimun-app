@@ -10,11 +10,19 @@ class ApiClient {
 
   String get _baseUrl {
     // Prefer API_BASE_URL, fallback to VITE_RIMUN_API_URL, then default
-    final envUrl =
-        dotenv.env['API_BASE_URL'] ?? dotenv.env['VITE_RIMUN_API_URL'];
-    return (envUrl != null && envUrl.isNotEmpty)
-        ? envUrl
-        : 'http://127.0.0.1:8081';
+        // Prefer API_BASE_URL, fallback to VITE_RIMUN_API_URL, then default.
+        // Guard dotenv access for tests where dotenv may be uninitialized.
+        String? envUrl;
+        try {
+          if (dotenv.isInitialized) {
+            envUrl = dotenv.env['API_BASE_URL'] ?? dotenv.env['VITE_RIMUN_API_URL'];
+          }
+        } catch (_) {
+          envUrl = null;
+        }
+        return (envUrl != null && envUrl.isNotEmpty)
+            ? envUrl
+            : 'http://127.0.0.1:8081';
   }
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {

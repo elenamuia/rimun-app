@@ -36,6 +36,35 @@ class RimunApiService {
     offset: offset,
   );
 
+  /// Convenience: list only approved delegates (status_application = 'accepted').
+  /// Optionally filter by `sessionId`, `committeeId`, `delegationId`, etc.
+  Future<List<api.Delegate>> getApprovedDelegates({
+    int? sessionId,
+    int? delegationId,
+    int? committeeId,
+    String? countryCode,
+    int? schoolId,
+    String? statusHousing,
+    bool? isAmbassador,
+    DateTime? updatedSince,
+    int? limit,
+    int? offset,
+  }) {
+    return _client.getDelegates(
+      sessionId: sessionId,
+      delegationId: delegationId,
+      committeeId: committeeId,
+      countryCode: countryCode,
+      schoolId: schoolId,
+      statusApplication: 'accepted',
+      statusHousing: statusHousing,
+      isAmbassador: isAmbassador,
+      updatedSince: updatedSince,
+      limit: limit,
+      offset: offset,
+    );
+  }
+
   Future<api.Delegate?> getDelegateById(String personId) =>
       _client.getDelegateById(personId);
 }

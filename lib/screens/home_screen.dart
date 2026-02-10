@@ -8,7 +8,6 @@ import 'map_screen.dart';
 import 'notice_board_screen.dart';
 import 'profile_screen.dart';
 import 'schedule_screen.dart';
-
 class HomeScreen extends StatefulWidget {
   final Student student;
   final Future<void> Function() onLogout;
@@ -58,6 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
         noticeService: _noticeService,
         noticeStream: _noticeService.listenNewsForStudent(widget.student),
       ),
+
+
 
       ProfileScreen(
         student: widget.student,
@@ -138,6 +139,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.campaign_outlined),
             selectedIcon: Icon(Icons.campaign),
             label: 'News',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people),
+            label: 'Delegates',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
