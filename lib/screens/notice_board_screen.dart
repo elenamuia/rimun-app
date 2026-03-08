@@ -1,64 +1,45 @@
 import 'package:flutter/material.dart';
-import '../models.dart';
-import '../services.dart';
+import 'package:rimun_app/api/models.dart';
+import 'package:rimun_app/services/rimun_api_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class NoticeBoardScreen extends StatelessWidget {
-  final Student student;
-  final NoticeService noticeService;
-  final Stream<List<Notice>> noticeStream;
+class NoticeBoardScreen extends StatefulWidget {
+  final ApiService apiService;
+  final bool canManagePosts;
 
   const NoticeBoardScreen({
     super.key,
-    required this.student,
-    required this.noticeService,
-    required this.noticeStream,
+    required this.apiService,
+    required this.canManagePosts,
   });
 
-  // ---------- STYLE HELPERS ----------
-  Color _noticeCardColor(String type) {
-    switch (type) {
-      case 'alert':
-        return Colors.red.withOpacity(0.22);
-      case 'info':
-        return Colors.lightBlueAccent.withOpacity(0.20);
-      case 'ordinary':
-      default:
-        return Colors.white.withOpacity(0.06);
-    }
+  @override
+  State<NoticeBoardScreen> createState() => _NoticeBoardScreenState();
+}
+
+class _NoticeBoardScreenState extends State<NoticeBoardScreen> {
+  late Future<List<PostWithAuthor>> _postsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _postsFuture = widget.apiService.listPosts();
   }
 
-  IconData _noticeIcon(String type) {
-    switch (type) {
-      case 'alert':
-        return Icons.warning_amber_rounded; // attenzione
-      case 'info':
-        return Icons.info_outline; // info
-      case 'ordinary':
-      default:
-        return Icons.event; // calendario
-    }
+  void _reload() {
+    setState(() {
+      _postsFuture = widget.apiService.listPosts();
+    });
   }
 
-  String _noticeTypeLabel(String type) {
-    switch (type) {
-      case 'alert':
-        return 'Alert';
-      case 'info':
-        return 'Info';
-      case 'ordinary':
-      default:
-        return 'Ordinary';
-    }
-  }
-
-  Future<void> _confirmAndDelete(BuildContext context, Notice notice) async {
+  // ---------- DELETE ----------
+  Future<void> _confirmAndDelete(BuildContext context, PostWithAuthor post) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete news?'),
-        content: Text('“${notice.title}” will be permanently deleted.'),
+        content: Text('"${post.title}" will be permanently deleted.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -74,7 +55,8 @@ class NoticeBoardScreen extends StatelessWidget {
 
     if (ok != true) return;
 
-    await noticeService.deleteNotice(notice.id);
+    await widget.apiService.deletePost(post.id);
+    _reload();
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -83,17 +65,12 @@ class NoticeBoardScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _openEditDialog(BuildContext context, Notice notice) async {
-    final titleCtrl = TextEditingController(text: notice.title);
-    final bodyCtrl = TextEditingController(text: notice.body);
-    final recipientsCtrl =
-        TextEditingController(text: notice.recipients.join(', '));
-
-    // ✅ NEW: type
-    String selectedType =
-        (notice.type == 'alert' || notice.type == 'info' || notice.type == 'ordinary')
-            ? notice.type
-            : 'ordinary';
+  // ---------- EDIT ----------
+  Future<void> _openEditDialog(BuildContext context, PostWithAuthor post) async {
+    final titleCtrl = TextEditingController(text: post.title);
+    final bodyCtrl = TextEditingController(text: post.body);
+    bool isForPersons = post.isForPersons;
+    bool isForSchools = post.isForSchools;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -104,44 +81,6 @@ class NoticeBoardScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ✅ Type selector (solo secretariat vede l'edit comunque)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Type',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                RadioListTile<String>(
-                  value: 'ordinary',
-                  groupValue: selectedType,
-                  onChanged: (v) => setState(() => selectedType = v ?? 'ordinary'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Ordinary'),
-                  secondary: const Icon(Icons.event),
-                ),
-                RadioListTile<String>(
-                  value: 'alert',
-                  groupValue: selectedType,
-                  onChanged: (v) => setState(() => selectedType = v ?? 'ordinary'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Alert'),
-                  secondary: const Icon(Icons.warning_amber_rounded),
-                ),
-                RadioListTile<String>(
-                  value: 'info',
-                  groupValue: selectedType,
-                  onChanged: (v) => setState(() => selectedType = v ?? 'ordinary'),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Info'),
-                  secondary: const Icon(Icons.info_outline),
-                ),
-                const SizedBox(height: 12),
-
                 TextField(
                   controller: titleCtrl,
                   decoration: const InputDecoration(labelText: 'Title'),
@@ -153,12 +92,19 @@ class NoticeBoardScreen extends StatelessWidget {
                   maxLines: 5,
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: recipientsCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Recipients',
-                    hintText: 'e.g. UNHRC, WHO, UNESCO (empty = everyone)',
-                  ),
+                CheckboxListTile(
+                  value: isForPersons,
+                  onChanged: (v) => setState(() => isForPersons = v ?? false),
+                  title: const Text('Visible to persons'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                CheckboxListTile(
+                  value: isForSchools,
+                  onChanged: (v) => setState(() => isForSchools = v ?? false),
+                  title: const Text('Visible to schools'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
               ],
             ),
@@ -182,12 +128,6 @@ class NoticeBoardScreen extends StatelessWidget {
     final title = titleCtrl.text.trim();
     final body = bodyCtrl.text.trim();
 
-    final recipients = recipientsCtrl.text
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-
     if (title.isEmpty || body.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -197,13 +137,14 @@ class NoticeBoardScreen extends StatelessWidget {
       return;
     }
 
-    await noticeService.updateNotice(
-      noticeId: notice.id,
+    await widget.apiService.updatePost(
+      postId: post.id,
       title: title,
       body: body,
-      recipients: recipients,
-      type: selectedType, // ✅ NEW
+      isForPersons: isForPersons,
+      isForSchools: isForSchools,
     );
+    _reload();
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -212,10 +153,11 @@ class NoticeBoardScreen extends StatelessWidget {
     }
   }
 
+  // ---------- BUILD ----------
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Notice>>(
-      stream: noticeStream,
+    return FutureBuilder<List<PostWithAuthor>>(
+      future: _postsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -230,122 +172,138 @@ class NoticeBoardScreen extends StatelessWidget {
           );
         }
 
-        final notices = snapshot.data ?? [];
+        final posts = snapshot.data ?? [];
 
-        if (notices.isEmpty) {
+        if (posts.isEmpty) {
           return const Center(child: Text('No news available.'));
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: notices.length,
-          itemBuilder: (context, index) {
-            final notice = notices[index];
+        return RefreshIndicator(
+          onRefresh: () async {
+            _reload();
+            // wait for the new future to finish so the spinner dismisses
+            await _postsFuture;
+          },
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = posts[index];
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              color: _noticeCardColor(notice.type),
-              child: ExpansionTile(
-                tilePadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              // Build author line, e.g. "Jane Doe · Secretariat"
+              String authorLine = '';
+              if (post.authorName != null) {
+                authorLine = post.authorName!;
+                if (post.authorRole != null) {
+                  authorLine += ' · ${post.authorRole}';
+                }
+              }
 
-                // ✅ Icona a sinistra
-                leading: Icon(
-                  _noticeIcon(notice.type),
-                  color: Colors.white,
-                ),
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                color: Colors.white.withOpacity(0.06),
+                child: ExpansionTile(
+                  tilePadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
 
-                title: Text(
-                  notice.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
+                  leading: const Icon(Icons.article_outlined, color: Colors.white),
 
-                // (opzionale ma carino): label tipo sotto al titolo
-                subtitle: student.isSecretariat
-                ? Text(
-                    _noticeTypeLabel(notice.type),
-                    style: const TextStyle(color: Colors.white70),
-                  )
-                : null,
-
-
-                // ✅ edit + delete solo per secretariat
-                trailing: student.isSecretariat
-                    ? PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            _openEditDialog(context, notice);
-                          } else if (value == 'delete') {
-                            _confirmAndDelete(context, notice);
-                          }
-                        },
-                        itemBuilder: (ctx) => const [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit_outlined),
-                                SizedBox(width: 8),
-                                Text('Edit'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline),
-                                SizedBox(width: 8),
-                                Text('Delete'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )
-                    : null,
-
-                childrenPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: MarkdownBody(
-                      data: notice.body,
-                      selectable: true,
-                      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                        p: const TextStyle(fontSize: 14, color: Colors.white),
-                        a: const TextStyle(
-                          color: Colors.lightBlueAccent,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                      onTapLink: (text, href, title) async {
-                        if (href == null) return;
-                        final uri = Uri.tryParse(href);
-                        if (uri == null) return;
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      },
-                    ),
+                  title: Text(
+                    post.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
 
-                  // ✅ Recipients visibili SOLO al secretariat
-                  if (student.isSecretariat && notice.recipients.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                  subtitle: authorLine.isNotEmpty
+                      ? Text(authorLine, style: const TextStyle(color: Colors.white70))
+                      : null,
+
+                  // edit + delete only for users with permission
+                  trailing: widget.canManagePosts
+                      ? PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              _openEditDialog(context, post);
+                            } else if (value == 'delete') {
+                              _confirmAndDelete(context, post);
+                            }
+                          },
+                          itemBuilder: (ctx) => const [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined),
+                                  SizedBox(width: 8),
+                                  Text('Edit'),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline),
+                                  SizedBox(width: 8),
+                                  Text('Delete'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : null,
+
+                  childrenPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  children: [
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Recipients: ${notice.recipients.join(', ')}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white70,
+                      child: MarkdownBody(
+                        data: post.body,
+                        selectable: true,
+                        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                          p: const TextStyle(fontSize: 14, color: Colors.white),
+                          a: const TextStyle(
+                            color: Colors.lightBlueAccent,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
+                        onTapLink: (text, href, title) async {
+                          if (href == null) return;
+                          final uri = Uri.tryParse(href);
+                          if (uri == null) return;
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        },
                       ),
                     ),
+
+                    // Audience tags visible to managers
+                    if (widget.canManagePosts) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          spacing: 6,
+                          children: [
+                            if (post.isForPersons)
+                              const Chip(
+                                label: Text('Persons', style: TextStyle(fontSize: 12)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            if (post.isForSchools)
+                              const Chip(
+                                label: Text('Schools', style: TextStyle(fontSize: 12)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         );
       },
     );

@@ -5,8 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'models.dart';
+import 'api/models.dart';
 import 'services.dart';
+import 'services/rimun_api_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 
@@ -95,12 +96,29 @@ class LoginWrapper extends StatefulWidget {
 }
 
 class _LoginWrapperState extends State<LoginWrapper> {
-  Student? _student;
+  LoginResult? _session;
+  late final ApiService _apiService;
   bool _loading = true;
+
+  String _resolveBaseUrl() {
+    try {
+      if (dotenv.isInitialized) {
+        return dotenv.env['API_BASE_URL'] ??
+            dotenv.env['VITE_RIMUN_API_URL'] ??
+            'http://127.0.0.1:8081';
+      }
+    } catch (_) {}
+    return 'http://127.0.0.1:8081';
+  }
 
   @override
   void initState() {
     super.initState();
+
+    _apiService = ApiService(
+      baseUrl: _resolveBaseUrl(),
+      getToken: () => _session?.token ?? '',
+    );
 
     final bool isFirebaseSupported =
         kIsWeb ||
@@ -117,22 +135,11 @@ class _LoginWrapperState extends State<LoginWrapper> {
 
           if (user == null) {
             setState(() {
-              _student = null;
+              _session = null;
               _loading = false;
             });
           } else {
-            final email = user.email ?? '';
-            final basic = Student(
-              id: user.uid,
-              name: email.isNotEmpty ? email.split('@').first : 'Studente',
-              surname: '',
-              email: email,
-              school: '',
-              country: '',
-            );
-
             setState(() {
-              _student = basic;
               _loading = false;
             });
           }
@@ -140,7 +147,7 @@ class _LoginWrapperState extends State<LoginWrapper> {
       } catch (_) {
         // If Firebase is not initialized or unavailable in tests, show login
         setState(() {
-          _student = null;
+          _session = null;
           _loading = false;
         });
       }
@@ -155,15 +162,16 @@ class _LoginWrapperState extends State<LoginWrapper> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_student == null) {
+    if (_session == null) {
       return LoginScreen(
-        onLoggedIn: (student) {
-          setState(() => _student = student);
+        apiService: _apiService,
+        onLoggedIn: (session) {
+          setState(() => _session = session);
         },
       );
     } else {
       return HomeScreen(
-        student: _student!,
+        apiService: _apiService,
         onLogout: () async {
           final bool isFirebaseSupported =
               kIsWeb ||
@@ -178,7 +186,7 @@ class _LoginWrapperState extends State<LoginWrapper> {
           }
 
           if (mounted) {
-            setState(() => _student = null);
+            setState(() => _session = null);
           }
         },
       );

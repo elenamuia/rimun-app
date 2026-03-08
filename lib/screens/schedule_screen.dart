@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:rimun_app/api/models.dart';
+import 'package:rimun_app/services/rimun_api_service.dart';
 
 class ScheduleScreen extends StatefulWidget {
-  const ScheduleScreen({super.key});
+  final ApiService apiService;
+
+  const ScheduleScreen({super.key, required this.apiService});
 
   @override
   State<ScheduleScreen> createState() => _ScheduleScreenState();
@@ -15,108 +19,51 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   @override
   void initState() {
     super.initState();
-    _futureSchedules = _loadEventsFromCsv();
+    _futureSchedules = _loadEvents();
   }
 
-  /// ✅ Ritorna true se la label del giorno contiene la data di oggi.
-  /// Supporta label tipo: "24/01/2026", "24/01", "24-01-2026", "Friday 24/01", ecc.
-  bool _isTodayLabel(String dayLabel) {
-    final now = DateTime.now();
-
-    final dd = now.day.toString().padLeft(2, '0');
-    final mm = now.month.toString().padLeft(2, '0');
-    final yyyy = now.year.toString();
-
-    final label = dayLabel.trim();
-
-    final candidates = <String>[
-      '$dd/$mm/$yyyy',
-      '$dd/$mm',
-      '$dd-$mm-$yyyy',
-      '$dd-$mm',
-      '${now.day}/${now.month}', // senza padding (es. 4/1)
-      '${now.day}-${now.month}', // senza padding (es. 4-1)
-    ];
-
-    return candidates.any((c) => label.contains(c));
+  void _reload() {
+    setState(() {
+      _futureSchedules = _loadEvents();
+    });
   }
 
-  Future<List<DaySchedule>> _loadEventsFromCsv() async {
-    try {
-      final csvString =
-          await rootBundle.loadString('assets/rimun_calendario_prova.csv');
+  Future<List<DaySchedule>> _loadEvents() async {
+    final events = await widget.apiService.listTimelineEvents();
 
-      final lines = csvString
-          .split(RegExp(r'\r?\n'))
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty)
-          .toList();
-
-      if (lines.isEmpty) return [];
-
-      final Map<String, List<EventEntry>> byDay = {};
-
-      // salta header se presente
-      int startIndex = 0;
-      if (lines[0].toLowerCase().contains('day') &&
-          lines[0].toLowerCase().contains('starting')) {
-        startIndex = 1;
-      }
-
-      for (var i = startIndex; i < lines.length; i++) {
-        final line = lines[i];
-        final parts = line.split(',');
-        if (parts.length < 6) {
-          debugPrint('CSV: riga malformata "$line"');
-          continue;
-        }
-
-        final dayStr = parts[0].trim();
-        final startStr = parts[1].trim();
-        final endStr = parts[2].trim();
-        final description = parts[3].trim();
-        final location = parts[4].trim();
-        final link = parts[5].trim();
-
-        final startMinutes = _parseTimeToMinutes(startStr);
-        final endMinutes = _parseTimeToMinutes(endStr);
-
-        final entry = EventEntry(
-          dayLabel: dayStr,
-          startTimeLabel: startStr,
-          endTimeLabel: endStr,
-          startMinutes: startMinutes,
-          endMinutes: endMinutes,
-          description: description,
-          location: location,
-          link: link,
-        );
-
-        byDay.putIfAbsent(dayStr, () => []).add(entry);
-      }
-
-      final List<DaySchedule> result = [];
-      byDay.forEach((day, events) {
-        events.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
-        result.add(DaySchedule(dayLabel: day, events: events));
-      });
-
-      // (opzionale) ordinamento dei giorni per data se la label contiene una data,
-      // altrimenti resta l'ordine di inserimento della mappa.
-      return result;
-    } catch (e, st) {
-      debugPrint('ERRORE CSV: $e');
-      debugPrint('$st');
-      rethrow;
+    // Group by calendar day
+    final Map<String, List<TimelineEvent>> byDay = {};
+    final dateKeyFmt = DateFormat('yyyy-MM-dd');
+    for (final e in events) {
+      final dt = DateTime.tryParse(e.date);
+      final key = dt != null ? dateKeyFmt.format(dt) : 'Unknown';
+      byDay.putIfAbsent(key, () => []).add(e);
     }
+
+    // Sort events within each day by date, then build DaySchedule list
+    final result = <DaySchedule>[];
+    final sortedKeys = byDay.keys.toList()..sort();
+
+    final displayFmt = DateFormat('EEEE dd/MM/yyyy'); // e.g. "Friday 24/01/2026"
+
+    for (final key in sortedKeys) {
+      final dayEvents = byDay[key]!
+        ..sort((a, b) => a.date.compareTo(b.date));
+
+      // Pretty label from the date key
+      final dt = DateTime.tryParse(key);
+      final label = dt != null ? displayFmt.format(dt) : key;
+
+      result.add(DaySchedule(dayLabel: label, dateKey: key, events: dayEvents));
+    }
+
+    return result;
   }
 
-  int _parseTimeToMinutes(String time) {
-    final parts = time.split(':');
-    if (parts.length < 2) return 0;
-    final h = int.tryParse(parts[0]) ?? 0;
-    final m = int.tryParse(parts[1]) ?? 0;
-    return h * 60 + m;
+  bool _isToday(String dateKey) {
+    final now = DateTime.now();
+    final todayKey = DateFormat('yyyy-MM-dd').format(now);
+    return dateKey == todayKey;
   }
 
   @override
@@ -125,9 +72,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       future: _futureSchedules,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
@@ -142,115 +87,111 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         final days = snapshot.data ?? [];
 
         if (days.isEmpty) {
-          return const Center(
-            child: Text('No events scheduled.'),
-          );
+          return const Center(child: Text('No events scheduled.'));
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: days.length,
-          itemBuilder: (context, index) {
-            final day = days[index];
-            final isToday = _isTodayLabel(day.dayLabel);
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              elevation: isToday ? 6 : 4,
-              color: isToday
-                  ? Colors.indigo.withOpacity(0.35) // 🎯 evidenzia SOLO il giorno corrente
-                  : null,
-              child: ExpansionTile(
-                key: PageStorageKey('day_${day.dayLabel}'),
-                initiallyExpanded: isToday,
-                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                title: Text(
-                  'Day ${day.dayLabel}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                subtitle: Text(
-                  '${day.events.length} event${day.events.length == 1 ? '' : 's'}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                  ),
-                ),
-                childrenPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                children: day.events.map((event) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: _EventCard(event: event),
-                  );
-                }).toList(),
-              ),
-            );
-
+        return RefreshIndicator(
+          onRefresh: () async {
+            _reload();
+            await _futureSchedules;
           },
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: days.length,
+            itemBuilder: (context, index) {
+              final day = days[index];
+              final isToday = _isToday(day.dateKey);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                elevation: isToday ? 6 : 4,
+                color: isToday
+                    ? Colors.indigo.withOpacity(0.35)
+                    : null,
+                child: ExpansionTile(
+                  key: PageStorageKey('day_${day.dateKey}'),
+                  initiallyExpanded: isToday,
+                  tilePadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  title: Text(
+                    day.dayLabel,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${day.events.length} event${day.events.length == 1 ? '' : 's'}',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  childrenPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  children: day.events.map((event) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: _EventCard(event: event),
+                    );
+                  }).toList(),
+                ),
+              );
+            },
+          ),
         );
       },
     );
   }
 }
 
+// ── Local grouping model ──────────────────────────────────────────────────
+
 class DaySchedule {
-  final String dayLabel;
-  final List<EventEntry> events;
+  final String dayLabel; // display label, e.g. "Friday 24/01/2026"
+  final String dateKey;  // sortable key, e.g. "2026-01-24"
+  final List<TimelineEvent> events;
 
   DaySchedule({
     required this.dayLabel,
+    required this.dateKey,
     required this.events,
   });
 }
 
-class EventEntry {
-  final String dayLabel;
-  final String startTimeLabel;
-  final String endTimeLabel;
-  final int startMinutes;
-  final int endMinutes;
-  final String description;
-  final String location;
-  final String link;
-
-  EventEntry({
-    required this.dayLabel,
-    required this.startTimeLabel,
-    required this.endTimeLabel,
-    required this.startMinutes,
-    required this.endMinutes,
-    required this.description,
-    required this.location,
-    required this.link,
-  });
-}
+// ── Single event card ─────────────────────────────────────────────────────
 
 class _EventCard extends StatelessWidget {
-  final EventEntry event;
+  final TimelineEvent event;
 
   const _EventCard({required this.event});
 
-  Future<void> _openLink() async {
-    if (event.link.isEmpty) return;
-    final uri = Uri.tryParse(event.link);
+  IconData _iconForType(String type) {
+    switch (type.toLowerCase()) {
+      case 'deadline':
+        return Icons.timer_outlined;
+      case 'ceremony':
+        return Icons.celebration_outlined;
+      case 'social':
+        return Icons.groups_outlined;
+      case 'session':
+        return Icons.gavel_outlined;
+      default:
+        return Icons.event;
+    }
+  }
+
+  Future<void> _openDocument(String path) async {
+    final uri = Uri.tryParse(path);
     if (uri == null) return;
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final locationText = Text(
-      event.location,
-      style: const TextStyle(
-        fontSize: 13,
-        color: Colors.white70,
-        decoration: TextDecoration.underline,
-      ),
-    );
+    // Extract time from the date string
+    final dt = DateTime.tryParse(event.date);
+    final timeLabel = dt != null ? DateFormat('HH:mm').format(dt) : '';
 
     return Container(
       decoration: BoxDecoration(
@@ -261,52 +202,66 @@ class _EventCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Orario
+          // Time + type icon
           Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '${event.startTimeLabel} - ${event.endTimeLabel}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
+              Icon(_iconForType(event.type), size: 20, color: Colors.white70),
+              if (timeLabel.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  timeLabel,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
+              ],
             ],
           ),
           const SizedBox(width: 12),
-          // Descrizione + location
+
+          // Name + description + document link
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event.description,
-                  style: const TextStyle(
-                    fontSize: 16,
-                  ),
+                  event.name,
+                  style: const TextStyle(fontSize: 16),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.place, size: 16),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: event.link.isNotEmpty
-                          ? InkWell(
-                              onTap: _openLink,
-                              child: locationText,
-                            )
-                          : Text(
-                              event.location,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.white70,
-                              ),
-                            ),
+                if (event.description != null &&
+                    event.description!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    event.description!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white70,
                     ),
-                  ],
-                ),
+                  ),
+                ],
+                if (event.documentPath != null &&
+                    event.documentPath!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () => _openDocument(event.documentPath!),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.attach_file, size: 14, color: Colors.lightBlueAccent),
+                        SizedBox(width: 4),
+                        Text(
+                          'View document',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.lightBlueAccent,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

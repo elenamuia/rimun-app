@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import '../models.dart';
-import '../services.dart';
-import '../services/committee_service.dart';
+import 'package:rimun_app/api/models.dart';
+import 'package:rimun_app/services/rimun_api_service.dart';
 
 import 'today_screen.dart';
 import 'map_screen.dart';
 import 'notice_board_screen.dart';
 import 'profile_screen.dart';
 import 'schedule_screen.dart';
+
 class HomeScreen extends StatefulWidget {
-  final Student student;
+  final ApiService apiService;
   final Future<void> Function() onLogout;
 
   const HomeScreen({
     super.key,
-    required this.student,
+    required this.apiService,
     required this.onLogout,
   });
 
@@ -24,267 +24,200 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
-  final _scheduleService = ScheduleService();
-  final _noticeService = NoticeService();
 
-  // 🔹 Committees/rooms dal CSV (una sola lettura)
-  final _committeeService = CommitteeService();
-  late final Future<CommitteeData> _futureCommittees;
+  late final Future<PersonProfileDTO> _futureProfile;
 
   @override
   void initState() {
     super.initState();
-    _futureCommittees = _committeeService.loadCommittees();
+    _futureProfile = widget.apiService.getMyPersonProfile();
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      // ✅ HOME/TODAY: eventi + (in fondo) alert/info (gestiti dentro TodayScreen)
-      TodayScreen(
-        student: widget.student,
-        scheduleService: _scheduleService,
-        noticeService: _noticeService,
-        homeNoticeStream: _noticeService.listenHomeNoticesForStudent(widget.student),
-      ),
-
-      const ScheduleScreen(),
-      const MapScreen(),
-
-      // ✅ NEWS tab: mostra SOLO ordinary
-      NoticeBoardScreen(
-        student: widget.student,
-        noticeService: _noticeService,
-        noticeStream: _noticeService.listenNewsForStudent(widget.student),
-      ),
-
-
-
-      ProfileScreen(
-        student: widget.student,
-        onLogout: widget.onLogout,
-      ),
-    ];
-
-    final bool canCreateNews =
-        widget.student.isSecretariat && (_index == 0 || _index == 3);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F245B),
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/logo_frase.png',
-              height: 28,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'RIMUN',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
+    return FutureBuilder<PersonProfileDTO>(
+      future: _futureProfile,
+      builder: (context, profileSnap) {
+        if (profileSnap.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            backgroundColor: Color(0xFF0F245B),
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (profileSnap.hasError) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF0F245B),
+            body: Center(
+              child: Text(
+                'Failed to load profile:\n${profileSnap.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white),
               ),
             ),
-          ],
-        ),
-      ),
-      body: IndexedStack(
-        index: _index,
-        children: pages,
-      ),
+          );
+        }
 
-      // 🔹 FAB "+" solo per segretariato in Today e News
-      floatingActionButton: canCreateNews
-          ? FloatingActionButton(
-              onPressed: _openCreateNoticeDialog,
-              backgroundColor: Colors.lightBlueAccent,
-              child: const Icon(Icons.add),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        final profile = profileSnap.data!;
+        final canManagePosts = profile.canManagePosts;
 
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: ImageIcon(
-              AssetImage('assets/logo_frase.png'),
-              size: 26,
+        final pages = [
+          TodayScreen(apiService: widget.apiService),
+          ScheduleScreen(apiService: widget.apiService,),
+          const MapScreen(),
+          NoticeBoardScreen(
+            apiService: widget.apiService,
+            canManagePosts: canManagePosts,
+          ),
+          ProfileScreen(
+            api: widget.apiService,
+            onLogout: widget.onLogout,
+          ),
+        ];
+
+        final bool showFab = canManagePosts && (_index == 0 || _index == 3);
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF0F245B),
+          appBar: AppBar(
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/logo_frase.png',
+                  height: 28,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'RIMUN',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
             ),
-            selectedIcon: ImageIcon(
-              AssetImage('assets/logo_frase.png'),
-              size: 28,
-            ),
-            label: 'Today',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.event_outlined),
-            selectedIcon: Icon(Icons.event),
-            label: 'Schedule',
+          body: IndexedStack(
+            index: _index,
+            children: pages,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Map',
+          floatingActionButton: showFab
+              ? FloatingActionButton(
+                  onPressed: _openCreatePostDialog,
+                  backgroundColor: Colors.lightBlueAccent,
+                  child: const Icon(Icons.add),
+                )
+              : null,
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: const [
+              NavigationDestination(
+                icon: ImageIcon(AssetImage('assets/logo_frase.png'), size: 26),
+                selectedIcon: ImageIcon(AssetImage('assets/logo_frase.png'), size: 28),
+                label: 'Today',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.event_outlined),
+                selectedIcon: Icon(Icons.event),
+                label: 'Schedule',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.map_outlined),
+                selectedIcon: Icon(Icons.map),
+                label: 'Map',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.campaign_outlined),
+                selectedIcon: Icon(Icons.campaign),
+                label: 'News',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.campaign_outlined),
-            selectedIcon: Icon(Icons.campaign),
-            label: 'News',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: 'Delegates',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Future<void> _openCreateNoticeDialog() async {
-    // 🔹 Prendo le opzioni destinatari dal CSV (sincronizzate con MapScreen)
-    final committeeData = await _futureCommittees;
-    final recipientOptions = committeeData.options;
-
+  Future<void> _openCreatePostDialog() async {
     final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final Set<String> selectedRecipients = {};
-
-    // ✅ tipo news
-    String selectedType = 'ordinary';
+    final bodyController = TextEditingController();
+    bool isForPersons = true;
+    bool isForSchools = false;
 
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (ctx, setState) {
+          builder: (ctx, setSt) {
             return AlertDialog(
               title: const Text('Create news'),
               content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // ✅ Tipo news
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Type',
-                        style: Theme.of(context).textTheme.titleMedium,
+                child: SizedBox(
+                  width: 520,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        maxLength: 100,
+                        decoration: const InputDecoration(labelText: 'Title'),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    RadioListTile<String>(
-                      value: 'ordinary',
-                      groupValue: selectedType,
-                      onChanged: (v) =>
-                          setState(() => selectedType = v ?? 'ordinary'),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Ordinary'),
-                      secondary: const Icon(Icons.event),
-                    ),
-                    RadioListTile<String>(
-                      value: 'alert',
-                      groupValue: selectedType,
-                      onChanged: (v) =>
-                          setState(() => selectedType = v ?? 'ordinary'),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Alert'),
-                      secondary: const Icon(Icons.warning_amber_rounded),
-                    ),
-                    RadioListTile<String>(
-                      value: 'info',
-                      groupValue: selectedType,
-                      onChanged: (v) =>
-                          setState(() => selectedType = v ?? 'ordinary'),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Info'),
-                      secondary: const Icon(Icons.info_outline),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Titolo
-                    TextField(
-                      controller: titleController,
-                      maxLength: 100,
-                      decoration: const InputDecoration(
-                        labelText: 'Title',
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: bodyController,
+                        maxLines: 4,
+                        maxLength: 500,
+                        decoration: const InputDecoration(
+                          labelText: 'Body (Markdown supported)',
+                          alignLabelWithHint: true,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Descrizione
-                    TextField(
-                      controller: descriptionController,
-                      maxLines: 4,
-                      maxLength: 500,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        alignLabelWithHint: true,
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Visible to',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Destinatari (multi-selezione)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Recipients',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      CheckboxListTile(
+                        title: const Text('Persons (delegates, staff, etc.)'),
+                        value: isForPersons,
+                        onChanged: (v) => setSt(() => isForPersons = v ?? true),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (recipientOptions.isEmpty)
-                      const Text('No recipients available (CSV empty).')
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: recipientOptions.map((r) {
-                          final selected = selectedRecipients.contains(r);
-                          return FilterChip(
-                            label: Text(r),
-                            selected: selected,
-                            onSelected: (v) {
-                              setState(() {
-                                if (v) {
-                                  selectedRecipients.add(r);
-                                } else {
-                                  selectedRecipients.remove(r);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
+                      CheckboxListTile(
+                        title: const Text('Schools'),
+                        value: isForSchools,
+                        onChanged: (v) => setSt(() => isForSchools = v ?? false),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Annulla'),
+                  child: const Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Crea news'),
+                  child: const Text('Create'),
                 ),
               ],
             );
@@ -296,38 +229,31 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result != true) return;
 
     final title = titleController.text.trim();
-    final body = descriptionController.text.trim();
-    final recipients = selectedRecipients.toList();
+    final body = bodyController.text.trim();
 
     if (title.isEmpty || body.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Title and description are required'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Title and body are required')),
+        );
+      }
       return;
     }
 
-    // ✅ Dialog di conferma (stile logout) ma giallo
+    // Confirmation dialog
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.amber,
-        title: const Text(
-          'Conferma creazione',
-          style: TextStyle(color: Colors.black),
-        ),
+        title: const Text('Confirm', style: TextStyle(color: Colors.black)),
         content: const Text(
-          'Sei sicuro di voler procedere?',
+          'Are you sure you want to create this post?',
           style: TextStyle(color: Colors.black87),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Annulla',
-              style: TextStyle(color: Colors.black),
-            ),
+            child: const Text('Cancel', style: TextStyle(color: Colors.black)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -335,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
               foregroundColor: Colors.amber,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Conferma'),
+            child: const Text('Confirm'),
           ),
         ],
       ),
@@ -343,20 +269,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (ok != true) return;
 
-    await _noticeService.createNotice(
-      author: widget.student,
-      title: title,
-      body: body,
-      recipients: recipients,
-      type: selectedType,
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('News creata'),
-        ),
+    try {
+      await widget.apiService.createPost(
+        title: title,
+        body: body,
+        isForPersons: isForPersons,
+        isForSchools: isForSchools,
       );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post created')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating post: $e')),
+        );
+      }
     }
   }
 }

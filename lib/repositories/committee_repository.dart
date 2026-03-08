@@ -33,3 +33,32 @@ class CommitteeRepository {
         .toList();
   }
 }
+
+
+class ProfileRepository {
+  final ApiClient api;
+  ProfileRepository(this.api);
+
+  Future<ProfileData> load() async {
+    final me = await api.me();
+    final active = await api.getActiveSession();
+
+    final j = await api.getPersonProfile(personId: me.personId, sessionId: active.sessionId);
+
+    String s(dynamic v) => (v ?? '').toString();
+
+    return ProfileData(
+      personId: me.personId,
+      fullName: s(j['full_name']),
+      email: me.email,
+      group: s(j['confirmed_group_name']),  // e.g. "delegate", "secretariat"
+      role: s(j['confirmed_role_name']),    // e.g. "Delegate", "Secretary General"
+      school: s(j['school_name']),
+      country: s(j['country_name']),
+      delegation: s(j['delegation_name']),
+      committee: s(j['committee_name']),
+      forumAcronym: s(j['forum_acronym']),
+      isAmbassador: (j['is_ambassador'] as bool?) ?? false,
+    );
+  }
+}
