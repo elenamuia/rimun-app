@@ -40,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       widget.onLoggedIn(result);
     } catch (e) {
+      debugPrint('Login error: $e');
       setState(() => _error = 'Credentials not valid or connection error.');
     } finally {
       if (mounted) setState(() => _loading = false);

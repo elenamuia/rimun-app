@@ -303,7 +303,6 @@ class LoginResult {
   final bool isSchool;
   final bool isAdmin;
   final PersonProfileDTO? person;
-  // final SchoolProfileDTO? school;  // add when needed
 
   LoginResult({
     required this.token,

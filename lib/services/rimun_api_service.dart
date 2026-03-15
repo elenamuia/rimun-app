@@ -12,9 +12,9 @@ class ApiService {
   ApiService({required this.baseUrl, required this.getToken});
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${getToken()}',
-      };
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ${getToken()}',
+  };
 
   // --- Profile ---
   Future<PersonProfileDTO> getMyPersonProfile() async {
@@ -96,7 +96,7 @@ class ApiService {
     return PostWithAuthor.fromJson(jsonDecode(res.body));
   }
 
-    Future<ProfileData> getMyProfile() async {
+  Future<ProfileData> getMyProfile() async {
     final res = await http.get(
       Uri.parse('$baseUrl/api/v2/profiles/me/person'),
       headers: _headers,
@@ -104,33 +104,34 @@ class ApiService {
     if (res.statusCode != 200) throw ApiException(res.statusCode, res.body);
     return ProfileData.fromPersonProfileJson(jsonDecode(res.body));
   }
-  Future<List<Committee>> fetchAllCommittees() async {
-  final response = await http.get(Uri.parse('$baseUrl/api/v2/forums'));
-  final forums = jsonDecode(response.body) as List;
-  
-  // Flatten: each forum has a "committees" array
-  return forums
-      .expand((f) => (f['committees'] as List?) ?? [])
-      .map((c) => Committee.fromJson(c))
-      .toList();
-}
 
-Future<LoginResult> login({
-  required String email,
-  required String password,
-}) async {
-  final uri = Uri.parse('$baseUrl/api/v2/auth/login');
-  final response = await http.post(
-    uri,
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode({'email': email, 'password': password}),
-  );
-  if (response.statusCode != 200) {
-    throw Exception('Login failed: ${response.statusCode}');
+  Future<List<Committee>> fetchAllCommittees() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/v2/forums'));
+    final forums = jsonDecode(response.body) as List;
+
+    // Flatten: each forum has a "committees" array
+    return forums
+        .expand((f) => (f['committees'] as List?) ?? [])
+        .map((c) => Committee.fromJson(c))
+        .toList();
   }
-  final json = jsonDecode(response.body) as Map<String, dynamic>;
-  return LoginResult.fromJson(json);
-}
+
+  Future<LoginResult> login({
+    required String email,
+    required String password,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v2/auth/login');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Login failed: ${response.statusCode}');
+    }
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return LoginResult.fromJson(json);
+  }
 }
 
 class ApiException implements Exception {
@@ -140,5 +141,3 @@ class ApiException implements Exception {
   @override
   String toString() => 'ApiException($statusCode): $body';
 }
-
-

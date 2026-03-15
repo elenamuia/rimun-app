@@ -35,7 +35,6 @@ class CommitteeRepository {
   }
 }
 
-
 class ProfileRepository {
   final ApiClient api;
   ProfileRepository(this.api);
@@ -46,7 +45,10 @@ class ProfileRepository {
 
     final personId = (me['person_id'] ?? 0) as int;
     final sessionId = (active['session_id'] ?? active['id'] ?? 0) as int;
-    final j = await api.getPersonProfile(personId: personId, sessionId: sessionId);
+    final j = await api.getPersonProfile(
+      personId: personId,
+      sessionId: sessionId,
+    );
 
     String s(dynamic v) => (v ?? '').toString();
     final group = s(j['confirmed_group_name']);
